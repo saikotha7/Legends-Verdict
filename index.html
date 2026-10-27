@@ -1,0 +1,916 @@
+<title>Legends Verdict</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column. Search, one clear answer, six plain questions, then the evidence for anyone who wants it. */
+:root{
+  --bg:#f1f4f7; --surface:#ffffff; --ink:#13202b; --muted:#566878; --line:#d8e0e7; --soft:#e8eef3;
+  --accent:#1d4f7c; --accent-ink:#ffffff;
+  --buy:#17794a; --buy-bg:#e3f3ea; --watch:#9a6408; --watch-bg:#fbf0d9; --avoid:#b03a2e; --avoid-bg:#f9e4e1;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e151c; --surface:#16202a; --ink:#e5ecf2; --muted:#92a3b2; --line:#2a3743; --soft:#1e2a35;
+  --accent:#7fb3e6; --accent-ink:#0e151c;
+  --buy:#4fc48b; --buy-bg:#173326; --watch:#e3ad48; --watch-bg:#3a2d12; --avoid:#f08476; --avoid-bg:#3b1f1b; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0e151c; --surface:#16202a; --ink:#e5ecf2; --muted:#92a3b2; --line:#2a3743; --soft:#1e2a35;
+  --accent:#7fb3e6; --accent-ink:#0e151c;
+  --buy:#4fc48b; --buy-bg:#173326; --watch:#e3ad48; --watch-bg:#3a2d12; --avoid:#f08476; --avoid-bg:#3b1f1b; color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--f-body);
+  padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.05;font-weight:800}
+h2{font-size:20px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+.brand{font:500 12px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.lede{color:var(--muted);margin:8px 0 0;max-width:60ch}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.search{display:flex;gap:8px;flex-wrap:wrap}
+.search input{flex:1 1 220px;min-width:0;padding:13px 14px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:16px}
+.btn{padding:12px 18px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.try{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:14px;color:var(--muted)}
+.chip{padding:4px 12px;border:1px solid var(--line);border-radius:99px;background:var(--surface);cursor:pointer;font-size:14px}
+.note{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--surface);padding:10px 14px;border-radius:4px;font-size:14px;color:var(--muted)}
+.note.warn{border-left-color:var(--watch)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.steps li{display:flex;gap:10px;align-items:center;color:var(--muted)}
+.steps li[data-s="active"],.steps li[data-s="done"]{color:var(--ink)}
+.dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--line);flex:none}
+li[data-s="active"] .dot{border-color:var(--accent);animation:pulse 1s ease-in-out infinite alternate}
+li[data-s="done"] .dot{background:var(--buy);border-color:var(--buy)}
+li[data-s="fail"] .dot{background:var(--avoid);border-color:var(--avoid)}
+@keyframes pulse{to{background:var(--accent)}}
+@media (prefers-reduced-motion:reduce){li[data-s="active"] .dot{animation:none;background:var(--accent)}}
+.err{color:var(--avoid);font-weight:500}
+/* verdict */
+.verdict{display:grid;grid-template-columns:minmax(0,270px) minmax(0,1fr);gap:22px}
+@media (max-width:680px){.verdict{grid-template-columns:minmax(0,1fr)}}
+.vword{font:800 clamp(40px,9vw,58px)/1 var(--f-display);letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.v-Buy{color:var(--buy)} .v-Watch{color:var(--watch)} .v-Avoid{color:var(--avoid)} .v-Not{color:var(--muted)}
+.vmean{margin:8px 0 0;font-weight:500}
+.score{font:500 15px var(--f-mono);margin-top:10px}
+.score b{font-size:28px;font-weight:500}
+.scale{position:relative;height:8px;background:var(--soft);border-radius:4px;margin:12px 0 4px}
+.scale .fill{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:4px}
+.scale i{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);opacity:.45}
+.scalelab{display:flex;justify-content:space-between;font:12px var(--f-mono);color:var(--muted)}
+.sure{margin-top:10px;font-size:14px;color:var(--muted)}
+.co{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.co h2{font-size:24px}
+.meta{font-size:13.5px;color:var(--muted)}
+.judge{border-top:1px solid var(--line);padding-top:12px}
+.judge p{margin:6px 0 0;max-width:68ch}
+.ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.flags{display:flex;gap:8px;flex-wrap:wrap}
+.flag{font-size:14px;padding:5px 10px;border-radius:4px;background:var(--watch-bg);color:var(--watch)}
+.flag.bad{background:var(--avoid-bg);color:var(--avoid)}
+.flag.info{background:var(--soft);color:var(--muted)}
+/* plain scorecard */
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:680px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card{border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card h3{font-size:17px}
+.grade{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font:600 13px var(--f-body);padding:3px 10px;border-radius:99px}
+.gr-hi{background:var(--buy-bg);color:var(--buy)} .gr-mid{background:var(--watch-bg);color:var(--watch)} .gr-lo{background:var(--avoid-bg);color:var(--avoid)} .gr-nd{background:var(--soft);color:var(--muted)}
+.say{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+.say li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:6px}
+.say .mk{font-family:var(--f-mono);font-weight:500}
+.g-hi{color:var(--buy)} .g-mid{color:var(--watch)} .g-lo{color:var(--avoid)} .g-nd{color:var(--muted)}
+.world{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.world li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:680px){.cols{grid-template-columns:minmax(0,1fr)}}
+.pips{font-family:var(--f-mono);letter-spacing:2px;color:var(--accent)}
+.team{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+.team li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:baseline}
+/* numbers for the curious */
+details.pil{border-top:1px solid var(--line);padding-top:10px}
+details.pil>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) 120px 74px;gap:12px;align-items:center}
+details.pil>summary::-webkit-details-marker{display:none}
+@media (max-width:560px){details.pil>summary{grid-template-columns:minmax(0,1fr) 70px 64px}}
+.pname{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-weight:600}
+.lin{font:500 11px var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 5px}
+.bar{height:8px;background:var(--soft);border-radius:4px;position:relative}
+.bar span{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:4px}
+.pval{font:500 13px var(--f-mono);text-align:right}
+.chks{list-style:none;margin:10px 0 4px;padding:0;display:flex;flex-direction:column}
+.chk{display:grid;grid-template-columns:22px minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,1fr) 56px;gap:8px;padding:7px 0;border-top:1px dashed var(--line);font-size:13.5px;align-items:baseline}
+.chk .cp{font-family:var(--f-mono);text-align:right}
+.chk .ct{color:var(--muted)}
+.chk.skip{color:var(--muted)}
+@media (max-width:640px){.chk{grid-template-columns:22px minmax(0,1fr) 56px;grid-template-areas:"m l p" ". v v" ". t t"}
+ .chk .mk{grid-area:m}.chk .cl{grid-area:l}.chk .cp{grid-area:p}.chk .cv{grid-area:v}.chk .ct{grid-area:t}}
+.mk{font-family:var(--f-mono)}
+/* edit */
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.fields label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
+.fields input,.fields select{padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);font-size:15px;min-width:0}
+details.edit>summary,details.more>summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.foot{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+a{color:var(--accent)}
+
+/* tabs and picks */
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line)}
+.tab{padding:10px 16px;border:0;border-bottom:3px solid transparent;background:transparent;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.picks-wrap{display:flex;flex-direction:column;gap:16px}
+.rng{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.rng input{width:96px;padding:11px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:16px}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.picks-out{display:flex;flex-direction:column;gap:16px}
+.pickcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.ph{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:start}
+@media (max-width:560px){.ph{grid-template-columns:auto minmax(0,1fr)}.pv{grid-column:1/-1}}
+.rank{font:800 28px var(--f-display);color:var(--accent);line-height:1}
+.pv{text-align:right}
+@media (max-width:560px){.pv{text-align:left}}
+.voices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:680px){.voices{grid-template-columns:minmax(0,1fr)}}
+.voice{border:1px solid var(--line);border-radius:6px;padding:12px;min-width:0}
+.voice b{font:700 13px var(--f-body);letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.voice p{margin:6px 0 0;font-size:14.5px}
+.voice.ai{grid-column:1/-1;background:var(--soft)}
+.pbars{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.pbar{display:grid;grid-template-columns:minmax(0,1fr) 110px 52px;gap:10px;align-items:center;font-size:14px}
+@media (max-width:560px){.pbar{grid-template-columns:minmax(0,1fr) 70px 48px}}
+.alsolist{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+.plan{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.plan-h{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.plan-grid{grid-template-columns:minmax(0,1fr)}}
+.pg{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.pk{font:600 12px var(--f-body);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.pvv{font:500 20px var(--f-mono)}
+.alsolist li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:baseline}
+[hidden]{display:none!important}
+
+.lows-wrap{display:flex;flex-direction:column;gap:18px}
+.lcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.lcard.top{border-left:4px solid var(--buy)}
+.lhead{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;justify-content:space-between}
+.lscore{font:800 28px/1 var(--f-display)}
+.lcall{display:inline-block;padding:3px 10px;border-radius:99px;font-size:13px;font-weight:600;background:var(--soft)}
+.lcall.g{background:var(--buy-bg);color:var(--buy)} .lcall.y{background:var(--watch-bg);color:var(--watch)} .lcall.r{background:var(--avoid-bg);color:var(--avoid)}
+.lbars{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;font-size:12px;color:var(--muted)}
+@media (max-width:560px){.lbars{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lbar i{display:block;height:6px;border-radius:3px;background:var(--soft);margin-top:3px;overflow:hidden}
+.lbar i b{display:block;height:100%;background:var(--accent)}
+.lcard ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.lcard details summary{cursor:pointer;color:var(--accent);font-weight:600}
+.lrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.lsrc{font-size:13px;color:var(--muted)} .lsrc a{color:var(--accent)}
+
+.gem-empty{border:1px dashed var(--line);border-radius:8px;padding:16px;background:var(--surface)}
+.gbar{position:relative;height:10px;background:var(--soft);border-radius:5px;margin:6px 0 2px}
+.gbar b{display:block;height:100%;border-radius:5px;background:var(--accent)}
+.gbar span{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--buy)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">Legends Verdict</div>
+    <h1>Type a company. Get one clear answer.</h1>
+    <p class="lede">Three famous investors, Peter Lynch, Philip Fisher and William O'Neil, each have a way of judging a business. This page applies all three, adds an AI check of today's world, and tells you Buy, Watch or Avoid for holding a stock for years.</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Choose a tool">
+    <button class="tab on" id="tb-check" role="tab" aria-selected="true" type="button">Check any stock</button>
+    <button class="tab" id="tb-picks" role="tab" aria-selected="false" type="button">Today’s picks</button>
+    <button class="tab" id="tb-lows" role="tab" aria-selected="false" type="button">52-week lows</button>
+    <button class="tab" id="tb-gems" role="tab" aria-selected="false" type="button">Hidden gems</button>
+  </nav>
+  <div id="tab-check">
+  <form class="search" id="form" autocomplete="off">
+    <input id="q" type="text" placeholder="Company name or ticker, for example Costco" aria-label="Company name or ticker" maxlength="60">
+    <button class="btn" id="go" type="submit">Check this stock</button>
+  </form>
+  <div class="try">Try: <button type="button" class="chip" data-q="Costco">Costco</button><button type="button" class="chip" data-q="Nvidia">Nvidia</button><button type="button" class="chip" data-q="Ford">Ford</button><button type="button" class="chip" data-q="SoFi">SoFi</button><button type="button" class="chip" id="manual" hidden>Fill in numbers myself</button></div>
+
+  <div class="note" id="srcnote"><b>Good to know.</b> The numbers come from Claude's memory, not a live stock feed, and it cannot browse the internet. For well-known companies they are usually decent. For newer or smaller companies they can be old or missing, and this page tells you when that happens instead of guessing. Always double-check with the company's latest filings. This is education, not personal investment advice.</div>
+
+  <section class="panel" id="status" hidden>
+    <ul class="steps" id="steps"></ul>
+    <div class="err" id="errbox" hidden></div>
+    <div><button class="btn ghost" id="stop" type="button">Stop</button></div>
+  </section>
+
+  <div id="out" hidden></div>
+  </div>
+  <div id="tab-picks" hidden>
+   <div class="picks-wrap">
+    <div>
+     <h2 style="font-size:24px">Four minds, three picks</h2>
+     <p class="lede">Tell us how much you want to pay for one share. Peter Lynch’s, Philip Fisher’s and William O’Neil’s methods are applied to a researched list of companies using market prices from <span class="asof">October 19, 2026</span> (refreshed whenever you ask for a fresh list), and Claude adds a read of today’s world: higher interest rates, rebuilt tariffs, world tensions and the AI build-out.</p>
+    </div>
+    <form class="search" id="pform" autocomplete="off">
+      <label class="rng">From $<input id="pmin" type="number" min="0" step="1" inputmode="decimal" value="0" aria-label="Lowest share price"></label>
+      <label class="rng">To $<input id="pmax" type="number" min="0" step="1" inputmode="decimal" value="100" aria-label="Highest share price"></label>
+      <button class="btn" type="submit">Show picks</button>
+    </form>
+    <div class="try">Quick ranges: <button type="button" class="chip" data-max="10">Under $10</button><button type="button" class="chip" data-max="25">Under $25</button><button type="button" class="chip" data-max="50">Under $50</button><button type="button" class="chip" data-max="100">Under $100</button><button type="button" class="chip" data-max="250">Under $250</button><button type="button" class="chip" data-max="">Any price</button></div>
+    <div class="note"><b>Please read.</b> The choices come from a hand-researched list of about 77 large and mid-size US-listed companies, not the whole market. The “lenses” apply each investor’s published method to the numbers; they are not quotes from the investors. The numbers are from public financial data. A few judgments (people and culture scores, margin comparisons, effects of the world) are Claude’s own reading. We could not check insider buying, 12-month price strength or chart patterns live. This is education, not personal investment advice.</div>
+    <div id="picksout" class="picks-out"></div>
+   </div>
+  </div>
+  <div id="tab-lows" hidden>
+   <div class="lows-wrap">
+    <div>
+     <h2 style="font-size:24px">Stocks at 52-week lows</h2>
+     <p class="lede">22 well-known stocks that hit or sat near their 52-week lows this week, scored out of 100 on five things: business quality (25), why it fell (25), valuation (20), catalyst and timing (15) and balance sheet (15). Prices as of <span id="lowsasof"></span>. For a hold of at least two weeks.</p>
+    </div>
+    <div class="note warn"><b>Please read.</b> Scores are our judgment from public numbers, earnings-call summaries and news, not a measurement. Buy and sell ranges are reference zones, not guarantees. Several of these report earnings in the next week, so buy in thirds and not before the print if you can wait. This is education, not personal investment advice.</div>
+    <div class="note" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between"><span>Data as of <b id="lowsdate"></b>. Want today’s numbers? Click, then paste in your Claude chat.</span><button type="button" class="btn" id="lowsrefresh">Copy refresh request</button></div>
+    <h2>Our top 3 and why</h2>
+    <div id="lowstop" class="lows-wrap"></div>
+    <h2>All 22, ranked</h2>
+    <div id="lowsall"></div>
+    <div class="lsrc" id="lowssrc"></div>
+   </div>
+  </div>
+  <div id="tab-gems" hidden>
+   <div class="lows-wrap">
+    <div>
+     <h2 style="font-size:24px">Hidden gems under $10</h2>
+     <p class="lede">Each month: up to three stocks under $10 with the most room to grow. A stock scoring 80 or more is a true pick. If none reaches 80, the top three are shown as the best of the month, clearly marked. Any category, US-listed. This is the <b id="gemsmonth"></b> list.</p>
+    </div>
+    <div class="note warn"><b>Please read.</b> Stocks under $10 are usually small, volatile or struggling, so a high bar is the point. Growth score out of 100: growth potential (30), business quality (20), valuation (15), catalyst and momentum (15), balance sheet and survival (20). Scores are our judgment, not a measurement. Education, not personal investment advice.</div>
+    <div class="note" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between"><span>Checked <b id="gemsdate"></b>. For next month’s list, click, then paste in your Claude chat.</span><button type="button" class="btn" id="gemsrefresh">Copy refresh request</button></div>
+    <h2>This month’s winners</h2>
+    <div id="gemspicks"></div>
+    <h2>The rest of the field</h2>
+    <p class="muted" style="margin:0">Ranked by score. Names without a buy zone are ones we would not buy now.</p>
+    <div id="gemsall" class="lows-wrap"></div>
+    <div class="lsrc">Prices and numbers from <a href="https://stockanalysis.com" target="_blank" rel="noopener">StockAnalysis.com</a>; ideas from <a href="https://247wallst.com/investing/2026/10/01/3-stocks-under-10-worth-a-look-in-october/" target="_blank" rel="noopener">24/7 Wall St.</a>, <a href="https://altindex.com/best-stocks/under-10" target="_blank" rel="noopener">AltIndex</a> and <a href="https://www.sofi.com/learn/content/top-cheap-stocks-under-10-dollars/" target="_blank" rel="noopener">SoFi</a> lists. Not every stock under $10 was screened.</div>
+   </div>
+  </div>
+</div>
+
+<script id="engine">
+/* ---------- Scoring engine (design proposal v1: weights and thresholds are starting points, not proven rules) ---------- */
+const FACTORS=[['tariffs','Tariffs and trade'],['rates','Interest rates'],['geopolitics','World tensions'],['energy','Energy prices'],['ai','The AI shift']];
+const DEFAULT_STATE={tariffs:1.0,rates:1.2,geopolitics:0.8,energy:0.6,ai:1.0};
+const TEN_Y=5.09;
+const CATS=['slow grower','stalwart','fast grower','cyclical','turnaround','asset play'];
+const MIN_EPS={'slow grower':2,'stalwart':8,'fast grower':18,'cyclical':5,'turnaround':0,'asset play':0};
+const MIN_QTR={'slow grower':0,'stalwart':8,'fast grower':18,'cyclical':5,'turnaround':0,'asset play':0};
+const PILLARS=[
+ {n:1,name:'Business quality',w:25,lin:'FO',who:'Fisher and O’Neil'},
+ {n:2,name:'Earnings growth and consistency',w:20,lin:'OL',who:'O’Neil and Lynch'},
+ {n:3,name:'Valuation vs growth and rates',w:20,lin:'L',who:'Lynch'},
+ {n:4,name:'Financial strength and capital use',w:15,lin:'LFO',who:'Lynch, Fisher and O’Neil'},
+ {n:5,name:'Management and integrity',w:10,lin:'FL',who:'Fisher and Lynch'},
+ {n:6,name:'Market validation',w:10,lin:'OL',who:'O’Neil and Lynch'}
+];
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lin=(x,x0,x1,y0,y1)=>y0+(y1-y0)*clamp((x-x0)/(x1-x0),0,1);
+const pct=(v,d=1)=>v==null?'n/a':(+v).toFixed(d)+'%';
+const nf=(v,d=1)=>v==null?'n/a':(+v).toFixed(d);
+
+function ageMonths(s,now){
+  const m=/(20\d\d)\s*[-\/ ]?\s*(?:Q([1-4])|(\d{1,2}))?/i.exec(s||'');
+  if(!m)return null;
+  const y=+m[1]; let mo=12;
+  if(m[2])mo=+m[2]*3; else if(m[3]&&+m[3]>=1&&+m[3]<=12)mo=+m[3];
+  return (now.getFullYear()-y)*12+(now.getMonth()+1-mo);
+}
+function categorize(d){
+  const hint=d.categoryHint, g=d.epsCAGR5y, mc=d.marketCapUSDm;
+  let name,note='';
+  if(['turnaround','asset play','cyclical'].includes(hint)) name=hint;
+  else if(g==null){name=CATS.includes(hint)?hint:'stalwart';note='We could not find the company’s long-term profit growth, so its type follows the AI’s best guess.';}
+  else name=g<5?'slow grower':(g<=15?'stalwart':'fast grower');
+  if(name==='fast grower'&&mc!=null&&mc>200000){name='stalwart';note='Giant companies are not counted as fast growers.';}
+  return {name,note};
+}
+
+function score(d,q,opts={}){
+  const F=Object.assign({},DEFAULT_STATE,opts.factors||{}), tenY=opts.tenY??TEN_Y, now=opts.now||new Date();
+  const cat=categorize(d);
+  const fin=/bank|insur|financ|reit|capital markets|mortgage/i.test(`${d.sector||''} ${d.subIndustry||''}`);
+  const checks=[];
+  const add=(p,id,label,value,thr,max,earned,x={})=>checks.push({p,id,label,value,thr,max,earned:earned==null?null:clamp(earned,0,max),na:!!x.na});
+
+  // Pillar 1: business quality
+  add(1,'roe','Return on equity',pct(d.roe),'17% or more',10,d.roe==null?null:lin(d.roe,5,17,0,10));
+  let em=null;
+  if(d.marginVsPeers){const b={above:6,inline:3,below:0}[d.marginVsPeers];em=d.marginTrend?b+{rising:2,stable:1,falling:0}[d.marginTrend]:b*8/6;}
+  add(1,'margin','Margins vs peers and their trend',d.marginVsPeers?`${d.marginVsPeers} peers, ${d.marginTrend||'trend unknown'}`:'n/a','Above peers, stable or rising',8,em);
+  add(1,'rev','Revenue growth vs industry',d.revenueGrowthVsIndustry?`${pct(d.revenueCAGR5y)} a year, ${d.revenueGrowthVsIndustry} industry`:pct(d.revenueCAGR5y),'Above industry',7,d.revenueGrowthVsIndustry?{above:7,inline:4,below:0}[d.revenueGrowthVsIndustry]:null);
+
+  // Pillar 2: growth and consistency
+  const minE=MIN_EPS[cat.name], minQ=MIN_QTR[cat.name];
+  let e2=null;
+  if(d.epsCAGR5y!=null){e2=minE>0?10*clamp(d.epsCAGR5y/minE,0,1):(d.epsCAGR5y>=0?10:lin(d.epsCAGR5y,-10,0,0,10)); if(cat.name==='fast grower'&&d.epsCAGR5y>30)e2-=3;}
+  add(2,'eps',`5-year EPS growth, judged as a ${cat.name}`,d.epsCAGR5y==null?'n/a':pct(d.epsCAGR5y)+' a year',minE>0?`${minE}% or more${cat.name==='fast grower'?' (over 30% is flagged)':''}`:'Not shrinking',10,e2);
+  add(2,'decel','Two straight quarters of slowing EPS growth',d.twoQuartersSlowing==null?'n/a':(d.twoQuartersSlowing?'Yes, slowing':'No'),'No',5,d.twoQuartersSlowing==null?null:(d.twoQuartersSlowing?0:5));
+  let e3=null;
+  if(d.latestQtrEpsGrowthYoY!=null){const x=d.latestQtrEpsGrowthYoY;e3=minQ>0?5*clamp(x/minQ,0,1):(x>=0?5:lin(x,-10,0,0,5));}
+  add(2,'qtr','Latest quarter EPS growth, year over year',pct(d.latestQtrEpsGrowthYoY),minQ>0?`${minQ}% or more`:'Not negative',5,e3);
+
+  // Pillar 3: valuation
+  const pegOn=['stalwart','fast grower'].includes(cat.name);
+  let ep=null; if(d.peg!=null) ep=d.peg<=0.5?12:(d.peg<=1?lin(d.peg,0.5,1,12,9):lin(d.peg,1,2,9,0));
+  add(3,'peg','PEG ratio (P/E divided by growth)',nf(d.peg,2),'1.0 or lower; 0.5 is best',12,pegOn?ep:null,{na:!pegOn});
+  const divOn=cat.name==='slow grower';
+  add(3,'div','Dividend yield (slow growers live on it)',pct(d.dividendYieldPct),'4% or more',12,divOn&&d.dividendYieldPct!=null?lin(d.dividendYieldPct,1,4,0,12):null,{na:!divOn});
+  let ey=null,e8=null,vv='n/a';
+  if(d.profitable===false){e8=0;vv='Negative earnings';}
+  else if(d.pe!=null&&d.pe>0){ey=100/d.pe;e8=lin(ey-tenY,-4,0,0,8);vv=`${nf(ey,1)}% vs 10-yr ${nf(tenY,2)}%`;}
+  add(3,'ey','Earnings yield vs 10-year Treasury',vv,'At or above the 10-year yield',8,e8);
+
+  // Pillar 4: financial strength
+  add(4,'debt','Debt to EBITDA',d.debtToEbitda==null?'n/a':nf(d.debtToEbitda,1)+'x','1x or lower; 4x scores zero',5,fin||d.debtToEbitda==null?null:lin(d.debtToEbitda,4,1,0,5),{na:fin});
+  add(4,'cov','Interest coverage',d.interestCoverage==null?'n/a':nf(d.interestCoverage,1)+'x','8x or more',4,fin||d.interestCoverage==null?null:lin(d.interestCoverage,2,8,0,4),{na:fin});
+  add(4,'cash','Net cash per share',d.netCashPerShareUSD==null?'n/a':'$'+nf(d.netCashPerShareUSD,2),'Positive',2,d.netCashPerShareUSD==null?null:(d.netCashPerShareUSD>0?2:0));
+  add(4,'shr','Share count change over 5 years',pct(d.shareCountChange5yPct),'Flat or falling',2,d.shareCountChange5yPct==null?null:lin(d.shareCountChange5yPct,5,0,0,2));
+  const invNa=fin||d.inventoryGrowthMinusSalesGrowthPct==null;
+  add(4,'inv','Inventory growth minus sales growth',d.inventoryGrowthMinusSalesGrowthPct==null?'not applicable':pct(d.inventoryGrowthMinusSalesGrowthPct),'Zero or below',2,invNa?null:lin(d.inventoryGrowthMinusSalesGrowthPct,10,0,0,2),{na:invNa});
+
+  // Pillar 5: management
+  const fs=(q&&q.fisher?q.fisher:[]).map(x=>x.score).filter(x=>x!=null);
+  const fa=fs.length>=3?fs.reduce((a,b)=>a+b,0)/fs.length:null;
+  add(5,'fisher','Fisher’s people and culture questions (AI-read, 1 to 5)',fa==null?'not assessed':nf(fa,1)+' of 5',  '4 or higher',6,fa==null?null:lin(fa,2,4.5,0,6));
+  add(5,'ins','Insider activity, last 12 months',d.insiderNetActivity12m||'n/a','Net buying',4,d.insiderNetActivity12m?{buying:4,neutral:2,selling:0}[d.insiderNetActivity12m]:null);
+
+  // Pillar 6: market validation
+  add(6,'inst','Institutional ownership trend',d.institutionalTrend?`${d.institutionalTrend}${d.institutionalOwnershipPct!=null?' ('+pct(d.institutionalOwnershipPct,0)+' held)':''}`:'n/a','Rising',5,d.institutionalTrend?{rising:5,flat:3,falling:0}[d.institutionalTrend]:null);
+  add(6,'ret','12-month return vs market (context only)',d.return12mVsMarketPct==null?'n/a':(d.return12mVsMarketPct>=0?'+':'')+nf(d.return12mVsMarketPct,0)+' pts','Not lagging by much',5,d.return12mVsMarketPct==null?null:lin(d.return12mVsMarketPct,-20,10,0,5));
+
+  const pillars=PILLARS.map(P=>{
+    const all=checks.filter(c=>c.p===P.n), cs=all.filter(c=>!c.na), have=cs.filter(c=>c.earned!=null);
+    const applicable=cs.reduce((a,c)=>a+c.max,0), availMax=have.reduce((a,c)=>a+c.max,0), earned=have.reduce((a,c)=>a+c.earned,0);
+    const included=applicable>0&&availMax/applicable>=0.4;
+    return Object.assign({},P,{checks:all,applicable,availMax,earned,included,score:included?earned/availMax*P.w:null});
+  });
+  const inc=pillars.filter(p=>p.included), incW=inc.reduce((a,p)=>a+p.w,0);
+  const base=incW?inc.reduce((a,p)=>a+p.score,0)/incW*100:null;
+  const allApp=pillars.reduce((a,p)=>a+p.applicable,0), allHave=pillars.reduce((a,p)=>a+p.availMax,0);
+  const coverage=allApp?allHave/allApp:0;
+  const aiC=[d.confidence,q&&q.confidence].filter(x=>x!=null);
+  const aiConf=aiC.length?aiC.reduce((a,b)=>a+b,0)/aiC.length:0.5;
+  const age=ageMonths(d.dataAsOf,now), stale=age!=null&&age>15;
+  const confidence=coverage*(0.6+0.4*aiConf)*(stale?0.75:1);
+
+  // market adjustment
+  let macro=null,macroRaw=null; const mrows=[];
+  if(q&&q.exposures){
+    macroRaw=0;
+    for(const [k,label] of FACTORS){const e=q.exposures[k]?q.exposures[k].score:null,c=e==null?0:e*F[k];macroRaw+=c;mrows.push({k,label,exp:e,why:q.exposures[k]?q.exposures[k].why:'',state:F[k],c});}
+    macro=clamp(macroRaw,-10,10);
+  }
+  const adjusted=base==null?null:clamp(base+(macro||0),0,100);
+
+  // gates, red flags, limits
+  const caps=[], vetoes=[], infos=[];
+  const mc=d.marketCapUSDm, adv=d.avgDailyDollarVolumeUSDm;
+  const inelig=(mc!=null&&mc<50)||(adv!=null&&adv<0.5);
+  if(mc==null)caps.push('We could not find the company’s size, so the most it can get is Watch.');
+  else if(mc<300)caps.push('A very small company (under $300 million): riskier and harder to judge, so the most it can get is Watch.');
+  if(d.priceUSD!=null&&d.priceUSD<1)caps.push('The share price is under $1, which raises the risk of delisting and of new shares being issued, so the most it can get is Watch.');
+  if(d.isADR)caps.push('A foreign company listed in the US: its reporting differs, so the most it can get is Watch.');
+  if(d.isRecentIPO)caps.push('Listed less than 3 years ago, so there is little history: the most it can get is Watch.');
+  if(['turnaround','asset play'].includes(cat.name))caps.push(cat.name==='turnaround'?'This looks like a struggling company trying to recover. Peter Lynch warns these rarely work out, so the most it can get is Watch.':'This looks like a company valued mainly for what it owns. That needs special handling, so the most it can get is Watch.');
+  if(d.goingConcern)vetoes.push('Auditors have warned the company may not survive (a "going concern" warning)');
+  if(d.restatementOrMaterialWeakness)vetoes.push('Past financial statements were corrected, or internal controls were found weak');
+  if(d.seriousDilution)vetoes.push('The company keeps issuing new shares, which shrinks each owner’s slice');
+  if(q&&q.integrityConcern)vetoes.push('Concerns about management’s honesty'+(q.integrityNote?': '+q.integrityNote:''));
+  if(fin)infos.push('Banks, lenders and similar companies are judged more simply here. Bank-specific measures are not built yet.');
+  if(cat.note)infos.push(cat.note);
+  if(stale)infos.push(`These figures are about ${age} months old (as of ${d.dataAsOf}), so treat this as a rough sketch.`);
+
+  const p3=pillars[2], p3ratio=p3.included?p3.score/p3.w:null;
+  let verdict,why=[];
+  if(inelig){verdict='Not scored';why.push('This company is too small or too thinly traded to judge fairly.');}
+  else if(base==null){verdict='Not scored';why.push('There is not enough information to score this company.');}
+  else if(confidence<0.5){verdict='Not scored';why.push(`We are only about ${Math.round(confidence*100)}% sure of the information, which is too low to give a fair verdict.`+(stale?' The figures look out of date.':''));}
+  else if(vetoes.length)verdict='Avoid';
+  else if(adjusted<50)verdict='Avoid';
+  else{
+    if(adjusted<70)why.push(`The overall score is ${nf(adjusted,0)}. A Buy needs 70.`);
+    if(p3ratio==null)why.push('We could not judge whether the price is fair.');
+    else if(p3ratio<0.4)why.push('The price looks high for the growth you get.');
+    if(confidence<0.7)why.push(`We are about ${Math.round(confidence*100)}% sure of the data, and a Buy needs 70%.`);
+    why.push(...caps);
+    verdict=why.length?'Watch':'Buy';
+  }
+
+  const live=checks.filter(c=>!c.na&&c.earned!=null);
+  const helpers=live.filter(c=>c.earned/c.max>=0.6).sort((a,b)=>b.earned-a.earned).slice(0,3);
+  const hurters=live.filter(c=>c.earned/c.max<0.7).sort((a,b)=>(b.max-b.earned)-(a.max-a.earned)).slice(0,3);
+  return {cat,fin,checks,pillars,base,macro,macroRaw,mrows,adjusted,coverage,confidence,aiConf,stale,age,verdict,why,vetoes,caps,infos,helpers,hurters,tenY};
+}
+</script>
+
+<script id="ui">
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>{if(typeof v==='string')v=parseFloat(v.replace(/[%,$x]/g,''));return typeof v==='number'&&isFinite(v)?v:null;};
+const bool=v=>typeof v==='boolean'?v:null;
+const oneOf=(v,a)=>{v=typeof v==='string'?v.toLowerCase().trim():'';return a.includes(v)?v:null;};
+const str=(v,n=200)=>typeof v==='string'?v.slice(0,n):'';
+
+const NUM_KEYS=['marketCapUSDm','priceUSD','avgDailyDollarVolumeUSDm','revenueCAGR5y','epsCAGR5y','latestQtrEpsGrowthYoY','roe','operatingMargin','pe','peg','debtToEbitda','interestCoverage','netCashPerShareUSD','shareCountChange5yPct','inventoryGrowthMinusSalesGrowthPct','institutionalOwnershipPct','return12mVsMarketPct','dividendYieldPct','confidence'];
+const ENUMS={marginVsPeers:['above','inline','below'],marginTrend:['rising','stable','falling'],revenueGrowthVsIndustry:['above','inline','below'],insiderNetActivity12m:['buying','neutral','selling'],institutionalTrend:['rising','flat','falling'],categoryHint:CATS};
+const BOOLS=['profitable','twoQuartersSlowing','goingConcern','restatementOrMaterialWeakness','seriousDilution','isADR','isRecentIPO'];
+
+function normFacts(r){
+  if(!r||typeof r!=='object')return null;
+  const f=r.flags&&typeof r.flags==='object'?r.flags:{};
+  const d={ticker:str(r.ticker,12).toUpperCase().replace(/[^A-Z0-9.\-]/g,''),company:str(r.company,80),exchange:str(r.exchange,20),sector:str(r.sector,60),subIndustry:str(r.subIndustry,80),dataAsOf:str(r.dataAsOf,40),notes:str(r.notes,300)};
+  d.resolved=r.resolved!==false&&!!d.ticker;
+  for(const k of NUM_KEYS)d[k]=num(r[k]);
+  for(const k in ENUMS)d[k]=oneOf(r[k],ENUMS[k]);
+  for(const k of BOOLS)d[k]=bool(r[k]!==undefined?r[k]:f[k]);
+  d.twoQuartersSlowing=bool(r.twoQuartersSlowingEpsGrowth!==undefined?r.twoQuartersSlowingEpsGrowth:r.twoQuartersSlowing);
+  d.isADR=!!d.isADR;d.isRecentIPO=!!d.isRecentIPO;
+  if(d.confidence!=null)d.confidence=clamp(d.confidence,0,1);
+  return d;
+}
+function normQual(r){
+  if(!r||typeof r!=='object')return null;
+  const q={story:str(r.twoMinuteStory,500),integrityConcern:bool(r.integrityConcern),integrityNote:str(r.integrityNote,160),scuttlebutt:str(r.scuttlebutt,500),
+    risks:(Array.isArray(r.risks)?r.risks:[]).slice(0,5).map(x=>str(x,160)),watch:(Array.isArray(r.watchItems)?r.watchItems:[]).slice(0,5).map(x=>str(x,160)),
+    confidence:num(r.confidence)==null?null:clamp(num(r.confidence),0,1)};
+  q.fisher=(Array.isArray(r.fisher)?r.fisher:[]).slice(0,10).map(x=>({label:str(x&&x.label,70),score:num(x&&x.score)==null?null:clamp(Math.round(num(x.score)),1,5),evidence:str(x&&x.evidence,160)}));
+  q.exposures=null;
+  if(r.exposures&&typeof r.exposures==='object'){q.exposures={};for(const [k] of FACTORS){const e=r.exposures[k]||{};const s=num(e.score);q.exposures[k]={score:s==null?null:clamp(Math.round(s),-2,2),why:str(e.why,160)};}}
+  return q;
+}
+
+/* ---------- prompts ---------- */
+const MACRO_CTX='Market backdrop to reason about (mid-October 2026, from news research, not live data): the Federal Reserve raised rates to 3.75-4.00% in September, the 10-year Treasury yield is near 5.1%, US tariffs were rebuilt product by product under Sections 232, 301 and 338 after the Supreme Court struck down the IEEPA tariffs, inflation is about 3.7%, and investors are scrutinizing heavy AI spending against slower AI revenue growth.';
+function promptFacts(query){return `You are a careful equity data analyst. Use only what you know from your own training; you cannot browse. Identify the US-listed company for this input: "${query}". Give the most recent financial facts you know. If you know a figure only roughly (within about 25%), still give your best number and lower "confidence". Use null only when you truly have no idea. Never invent precise-looking numbers. Percentages are plain numbers (12.5 means 12.5%). In "dataAsOf" state the period your numbers describe, such as 2025-Q3. Reply with only one JSON object, no prose:
+{"resolved":true,"ticker":"","company":"","exchange":"","isADR":false,"isRecentIPO":false,"sector":"","subIndustry":"","marketCapUSDm":0,"priceUSD":0,"avgDailyDollarVolumeUSDm":0,"dataAsOf":"","profitable":true,"revenueCAGR5y":0,"epsCAGR5y":0,"latestQtrEpsGrowthYoY":0,"twoQuartersSlowingEpsGrowth":false,"roe":0,"operatingMargin":0,"marginVsPeers":"above|inline|below","marginTrend":"rising|stable|falling","revenueGrowthVsIndustry":"above|inline|below","pe":0,"peg":0,"dividendYieldPct":0,"debtToEbitda":0,"interestCoverage":0,"netCashPerShareUSD":0,"shareCountChange5yPct":0,"inventoryGrowthMinusSalesGrowthPct":null,"insiderNetActivity12m":"buying|neutral|selling","institutionalOwnershipPct":0,"institutionalTrend":"rising|flat|falling","return12mVsMarketPct":0,"categoryHint":"slow grower|stalwart|fast grower|cyclical|turnaround|asset play","goingConcern":false,"restatementOrMaterialWeakness":false,"seriousDilution":false,"confidence":0.0,"notes":"one sentence naming your weakest figures"}
+"twoQuartersSlowingEpsGrowth" is whether profit-per-share growth slowed two quarters in a row. For banks or companies with no inventory, use null for inventory. "goingConcern", "restatementOrMaterialWeakness" and "seriousDilution" are true only if you are fairly sure; otherwise null. Set "resolved":false and explain in "notes" if you cannot identify the company. "confidence" is 0 to 1 for the whole set.`;}
+function promptQual(query){return `You are a long-term stock analyst applying Philip Fisher's qualitative method ("scuttlebutt") and Peter Lynch's two-minute story. Use only what you know from training; you cannot browse. Company or ticker: "${query}". ${MACRO_CTX}
+Judge the business, not the stock price. Rate each question 1 (poor) to 5 (outstanding), or null if you do not know enough. Exposure scores run from -2 (clearly hurt) through 0 (neutral) to +2 (clearly helped) for this specific company. Write in plain everyday words a beginner understands, with no jargon, and keep every string under 20 words. Reply with only one JSON object:
+{"twoMinuteStory":"two plain sentences on why a person would own it and what has to go right","fisher":[{"label":"Products with years of growth ahead","score":3,"evidence":""},{"label":"Research that pays off","score":3,"evidence":""},{"label":"Strong sales and customer service","score":3,"evidence":""},{"label":"Cost control and healthy margins","score":3,"evidence":""},{"label":"Good relations with employees","score":3,"evidence":""},{"label":"Strong managers beyond the CEO","score":3,"evidence":""},{"label":"Honest with investors when things go wrong","score":3,"evidence":""},{"label":"Thinks long term, not just next quarter","score":3,"evidence":""}],"integrityConcern":false,"integrityNote":"","scuttlebutt":"two sentences on what customers, employees, suppliers and competitors tend to say (your recollection, not live data)","exposures":{"tariffs":{"score":0,"why":""},"rates":{"score":0,"why":""},"geopolitics":{"score":0,"why":""},"energy":{"score":0,"why":""},"ai":{"score":0,"why":""}},"risks":["up to 4 short risks"],"watchItems":["up to 4 things that would change the verdict"],"confidence":0.0}
+"integrityConcern" is true only for documented fraud, repeated misleading statements or similar. "confidence" is 0 to 1 for how well you know this company.`;}
+function promptJudge(S,r){
+  const pl=r.pillars.map((p,i)=>({question:PQ[i].q,grade:p.included?grade(p).word:'not enough data'}));
+  const o={company:S.data.company,ticker:S.data.ticker,verdict:r.verdict,score:r.adjusted==null?null:Math.round(r.adjusted),type:r.cat.name,howSurePct:Math.round(r.confidence*100),answers:pl,strengths:r.helpers.map(c=>say(c,S.data,r)),concerns:r.hurters.map(c=>say(c,S.data,r)),redFlags:r.vetoes,limits:r.caps,whyNotBuy:r.why,story:S.qual&&S.qual.story,risks:S.qual&&S.qual.risks,watchItems:S.qual&&S.qual.watch};
+  return `Write the final answer for a beginner who plans to hold stocks for years and does not trade. The scoring engine already decided the verdict: never change or hedge it. In at most 80 words, using everyday words only (never say PEG, EBITDA, P/E, ROE or similar jargon): start with the verdict, then say what each legend would notice (Lynch: is the price fair for the growth; Fisher: is it a quality business with good people; O'Neil: are profits growing and are big investors backing it), using only the data below. Give the biggest strength, the biggest worry, and what would change the verdict. If the data is thin or old, say so. No bullets, no personal advice, no price targets.
+${JSON.stringify(o)}`;}
+
+/* ---------- plain-language helpers ---------- */
+const PQ=[{q:'Is it a good business?'},{q:'Is it growing?'},{q:'Is the price fair?'},{q:'Are its finances safe?'},{q:'Can you trust the people running it?'},{q:'Are big investors backing it?'}];
+const CATDESC={'slow grower':'a mature company growing slowly, often paying dividends','stalwart':'a large, steady company','fast grower':'a company still growing quickly','cyclical':'a company whose fortunes rise and fall with the economy','turnaround':'a struggling company trying to recover','asset play':'a company valued mainly for what it owns'};
+const VMEAN={Buy:'Looks like a solid long-term holding.',Watch:'Worth keeping an eye on, but not a clear Buy yet.',Avoid:'Not a good fit for a long-term holder right now.','Not scored':'Not enough reliable information to give a fair answer.'};
+const ONE=n=>Math.abs(n)>=10?Math.round(Math.abs(n)):Math.abs(n).toFixed(1);
+const REL={above:'faster than',inline:'about as fast as',below:'slower than'};
+function say(c,d,r){
+  const nm={roe:'Profit on shareholder money',margin:'Profit margins',rev:'Sales growth',eps:'Profit growth over 5 years',decel:'Recent profit trend',qtr:'Latest quarter',peg:'Price vs growth',div:'Dividends',ey:'What you pay for each $1 of profit',debt:'Debt',cov:'Ability to pay loan interest',cash:'Cash vs debt',shr:'Share count',inv:'Unsold stock',fisher:'Team and culture',ins:'Insider buying and selling',inst:'Big funds',ret:'Stock vs market this year'}[c.id]||c.label;
+  if(c.earned==null)return `${nm}: no reliable figure found.`;
+  switch(c.id){
+    case 'roe':return `Earns about ${Math.round(d.roe)} cents a year for every $1 of shareholder money${d.roe>=17?' (strong)':d.roe<8?' (weak)':''}.`;
+    case 'margin':return `Profit margins are ${{above:'better than',inline:'similar to',below:'worse than'}[d.marginVsPeers]} rivals${d.marginTrend?' and '+{rising:'improving',stable:'steady',falling:'shrinking'}[d.marginTrend]:''}.`;
+    case 'rev':return `Sales ${d.revenueCAGR5y!=null?'have grown about '+Math.round(d.revenueCAGR5y)+'% a year, ':'are growing '}${REL[d.revenueGrowthVsIndustry]} its industry.`;
+    case 'eps':return d.epsCAGR5y>=0?`Profit per share has grown about ${ONE(d.epsCAGR5y)}% a year over 5 years.`:`Profit per share has shrunk about ${ONE(d.epsCAGR5y)}% a year over 5 years.`;
+    case 'decel':return d.twoQuartersSlowing?'Profit growth has slowed two quarters in a row.':'Profit growth has not been fading.';
+    case 'qtr':return `Latest quarter: profit per share ${d.latestQtrEpsGrowthYoY>=0?'up':'down'} ${ONE(d.latestQtrEpsGrowthYoY)}% from a year earlier.`;
+    case 'peg':return `You pay about ${d.peg.toFixed(1)} for each point of growth (1 or less is a fair deal).`;
+    case 'div':return `Pays about ${d.dividendYieldPct.toFixed(1)}% a year in dividends.`;
+    case 'ey':return d.profitable===false?'The company is losing money, so there are no profits to price.':`For every $100 you pay for the stock, the company earns about $${(100/d.pe).toFixed(1)} a year. Safe 10-year US government bonds pay $${r.tenY.toFixed(2)}.`;
+    case 'debt':return `Debt equals about ${d.debtToEbitda.toFixed(1)} years of earnings${d.debtToEbitda<=1?' (very safe)':d.debtToEbitda>=4?' (heavy)':''}.`;
+    case 'cov':return `Earnings cover loan interest about ${Math.round(d.interestCoverage)} times over.`;
+    case 'cash':return d.netCashPerShareUSD>0?'Holds more cash than debt.':'Owes more than it holds in cash.';
+    case 'shr':return d.shareCountChange5yPct<=0?`Fewer shares than 5 years ago (down ${ONE(d.shareCountChange5yPct)}%), which helps owners.`:`More shares than 5 years ago (up ${ONE(d.shareCountChange5yPct)}%), which dilutes owners.`;
+    case 'inv':return d.inventoryGrowthMinusSalesGrowthPct<=0?'Unsold stock is not piling up.':'Unsold stock is growing faster than sales.';
+    case 'fisher':return `Team and culture rated ${c.value} by the AI.`;
+    case 'ins':return {buying:'Company insiders have been buying shares.',neutral:'Insiders have neither bought nor sold much.',selling:'Insiders have been selling shares.'}[d.insiderNetActivity12m];
+    case 'inst':return {rising:'Big funds have been buying more.',flat:'Big funds are holding steady.',falling:'Big funds have been selling.'}[d.institutionalTrend];
+    case 'ret':return `Over the past year the stock ${d.return12mVsMarketPct>=0?'beat':'trailed'} the overall market by ${ONE(d.return12mVsMarketPct)} points.`;
+  }
+  return nm;
+}
+function grade(p){
+  if(!p.included)return {word:'Not enough data',cls:'gr-nd',mk:'?'};
+  const r=p.score/p.w;
+  return r>=0.7?{word:'Strong',cls:'gr-hi',mk:'✓'}:(r>=0.4?{word:'Mixed',cls:'gr-mid',mk:'~'}:{word:'Weak',cls:'gr-lo',mk:'✕'});
+}
+function plainSummary(r){
+  if(r.verdict==='Not scored')return r.why[0]||'Not enough information to give a fair answer.';
+  const h=r.helpers[0],t=r.hurters[0];
+  const base=`${r.verdict}, with a score of ${Math.round(r.adjusted)} out of 100.`;
+  return base+(h?` Best point: ${lc(say(h,S.data,r))}`:'')+(t?` Biggest worry: ${lc(say(t,S.data,r))}`:'');
+}
+const lc=s=>s.charAt(0).toLowerCase()+s.slice(1);
+
+/* ---------- state + flow ---------- */
+let S={data:null,qual:null,res:null,ai:'',factors:Object.assign({},DEFAULT_STATE),tenY:TEN_Y,editOpen:false};
+let sampleFn=null,ctls=[],busy=false;
+const sampleP=(async()=>{try{return window.claude?await window.claude.use('sample'):null;}catch(e){return null;}})();
+sampleP.then(s=>{sampleFn=s;if(!s)$('#manual').hidden=false;});
+
+const COPY={not_granted:'Claude access was declined for this page, so the check cannot run. You can still fill in the numbers yourself.',sampling_disabled:'Claude is not available for this account.',rate_limited:'Too many requests, or your usage limit was reached. Try again later.',session_expired:'Please sign in again, then retry.',invalid_json:'Claude’s reply could not be read. Please try once more.',cancelled:'Stopped.'};
+const errCopy=e=>COPY[e&&e.code]||'Something went wrong reaching Claude. Please try again.';
+
+function setSteps(list){$('#steps').innerHTML=list.map(([id,t,s])=>`<li data-id="${id}" data-s="${s}"><span class="dot"></span><span>${esc(t)}</span></li>`).join('');}
+function step(id,s,t){const li=$(`#steps li[data-id="${id}"]`);if(!li)return;li.dataset.s=s;if(t)li.lastElementChild.textContent=t;}
+function showErr(m){const b=$('#errbox');b.textContent=m;b.hidden=!m;}
+
+async function analyze(query){
+  if(busy||!query.trim())return;
+  busy=true;$('#go').disabled=true;$('#out').hidden=true;showErr('');$('#status').hidden=false;$('#stop').hidden=false;
+  setSteps([['conn','Connecting to Claude','active'],['facts','Looking up the company’s numbers','pending'],['qual','Checking the business, its people and today’s world','pending'],['score','Scoring with the three investors’ rules','pending'],['judge','Writing your answer','pending']]);
+  const sample=await sampleP;sampleFn=sample;
+  if(!sample){step('conn','fail');showErr(COPY.not_granted);end();return;}
+  step('conn','done');step('facts','active');step('qual','active');
+  const ca=new AbortController(),cb=new AbortController();ctls=[ca,cb];
+  const pa=sample.json(promptFacts(query),{signal:ca.signal}).then(v=>{step('facts','done');return v;});
+  const pb=sample.json(promptQual(query),{signal:cb.signal}).then(v=>{step('qual','done');return v;});
+  const [ra,rb]=await Promise.allSettled([pa,pb]);
+  if(ra.status==='rejected'){ctls.forEach(c=>c.abort());step('facts','fail');showErr(errCopy(ra.reason));end();return;}
+  const d=normFacts(ra.value);
+  if(!d||!d.resolved){step('facts','fail');showErr('We could not identify that company. '+(d&&d.notes?d.notes+' ':'')+'Try its ticker symbol.');end();return;}
+  let q=null;
+  if(rb.status==='fulfilled')q=normQual(rb.value);else{step('qual','fail');}
+  S={data:d,qual:q,res:null,ai:'',factors:Object.assign({},DEFAULT_STATE),tenY:TEN_Y,editOpen:false};
+  step('score','active');
+  S.res=score(S.data,S.qual,{factors:S.factors,tenY:S.tenY});
+  step('score','done');render();
+  if(rb.status==='rejected')addNote('The people-and-world check failed ('+errCopy(rb.reason)+'). The score leaves that part out.');
+  if(S.res.verdict!=='Not scored')await judge();else step('judge','done');
+  end(true);
+}
+function end(ok){busy=false;$('#go').disabled=false;$('#stop').hidden=true;if(ok)$('#status').hidden=true;ctls=[];}
+function addNote(t){const n=document.createElement('div');n.className='note warn';n.textContent=t;$('#out').prepend(n);}
+
+async function judge(){
+  const sample=sampleFn;if(!sample)return;
+  step('judge','active');const el=$('#ai');if(el)el.textContent='Thinking...';
+  const c=new AbortController();ctls=[c];
+  try{
+    const {text}=await sample(promptJudge(S,S.res),{signal:c.signal,modelTier:'default',onText:({text})=>{const e=$('#ai');if(e)e.textContent=text;}});
+    S.ai=text.trim();step('judge','done');
+  }catch(e){
+    S.ai='';step('judge','fail');const x=$('#ai');if(x)x.textContent=plainSummary(S.res);
+  }
+  const rb=$('#rewrite');if(rb)rb.hidden=!!S.ai;
+}
+
+/* ---------- render ---------- */
+const gcls=(e,m)=>{const r=e/m;return r>=0.7?'g-hi':(r>=0.4?'g-mid':'g-lo');};
+const gmk=(e,m)=>{const r=e/m;return r>=0.7?'✓':(r>=0.4?'~':'✕');};
+function chkRow(c){
+  if(c.na)return `<li class="chk skip"><span class="mk" aria-label="not applicable">–</span><span class="cl">${esc(c.label)}</span><span class="cv">Not used for this type of company</span><span class="ct"></span><span class="cp">–</span></li>`;
+  if(c.earned==null)return `<li class="chk skip"><span class="mk" aria-label="no data">?</span><span class="cl">${esc(c.label)}</span><span class="cv">No data</span><span class="ct">Needs: ${esc(c.thr)}</span><span class="cp">–/${c.max}</span></li>`;
+  return `<li class="chk"><span class="mk ${gcls(c.earned,c.max)}" aria-label="${c.earned/c.max>=.7?'strong':(c.earned/c.max>=.4?'middling':'weak')}">${gmk(c.earned,c.max)}</span><span class="cl">${esc(c.label)}</span><span class="cv mono">${esc(c.value)}</span><span class="ct">Target: ${esc(c.thr)}</span><span class="cp">${c.earned.toFixed(1)}/${c.max}</span></li>`;
+}
+function techPillar(p){
+  const w=p.included?(p.score/p.w*100):0;
+  return `<details class="pil"><summary><span class="pname">${esc(p.name)}<span class="lin" title="${esc(p.who)}">${p.lin.split('').join(' ')}</span></span><span class="bar"><span style="width:${w}%"></span></span><span class="pval">${p.included?p.score.toFixed(1)+'/'+p.w:'no data'}</span></summary><ul class="chks">${p.checks.map(chkRow).join('')}</ul></details>`;
+}
+function cardHtml(p,i){
+  const g=grade(p),d=S.data,r=S.res;
+  const rows=p.checks.filter(c=>!c.na).map(c=>{
+    const nd=c.earned==null,cl=nd?'g-nd':gcls(c.earned,c.max),mk=nd?'?':gmk(c.earned,c.max);
+    return `<li><span class="mk ${cl}" aria-label="${nd?'no data':(c.earned/c.max>=.7?'good':(c.earned/c.max>=.4?'so-so':'bad'))}">${mk}</span><span>${esc(say(c,d,r))}</span></li>`;
+  }).join('');
+  return `<div class="card"><h3>${esc(PQ[i].q)}</h3><span class="grade ${g.cls}"><span aria-hidden="true">${g.mk}</span>${g.word}</span><ul class="say">${rows}</ul></div>`;
+}
+const FIELDS=[['marketCapUSDm','Company size: total stock-market value ($ millions)','n'],['priceUSD','Share price ($)','n'],['avgDailyDollarVolumeUSDm','Dollars traded per day ($ millions)','n'],['revenueCAGR5y','Yearly sales growth over 5 years (%)','n'],['epsCAGR5y','Yearly profit-per-share growth over 5 years (%)','n'],['latestQtrEpsGrowthYoY','Profit per share this quarter vs a year ago (%)','n'],['roe','Yearly profit on shareholders’ money (%)','n'],['pe','Price paid per $1 of yearly profit (the P/E)','n'],['peg','Price vs growth (PEG; 1 or less is fair)','n'],['dividendYieldPct','Dividend paid per year (%)','n'],['debtToEbitda','Years of earnings needed to repay debt','n'],['interestCoverage','Times earnings cover loan interest','n'],['netCashPerShareUSD','Cash minus debt, per share ($)','n'],['shareCountChange5yPct','Change in number of shares over 5 years (%)','n'],['inventoryGrowthMinusSalesGrowthPct','Unsold-stock growth minus sales growth (%)','n'],['institutionalOwnershipPct','Share owned by big funds (%)','n'],['return12mVsMarketPct','This year’s return minus the market’s (points)','n'],
+ ['marginVsPeers','Profit margins compared with rivals','e'],['marginTrend','Direction of profit margins','e'],['revenueGrowthVsIndustry','Sales growth compared with its industry','e'],['insiderNetActivity12m','Company insiders are','e'],['institutionalTrend','Big funds are','e'],['categoryHint','Type of company (Peter Lynch’s six)','e'],
+ ['profitable','Is the company profitable?','b'],['twoQuartersSlowing','Has profit growth slowed 2 quarters in a row?','b'],['goingConcern','Have auditors warned it may not survive?','b'],['restatementOrMaterialWeakness','Past statements corrected or controls weak?','b'],['seriousDilution','Keeps issuing lots of new shares?','b']];
+const OPT={above:'Better',inline:'Similar',below:'Worse',rising:'Improving',stable:'Steady',falling:'Shrinking',buying:'Buying',neutral:'Neither',selling:'Selling',flat:'Steady'};
+function optLabel(k,o){
+  if(k==='marginVsPeers'||k==='revenueGrowthVsIndustry')return {above:'Better',inline:'Similar',below:'Worse'}[o];
+  if(k==='institutionalTrend')return {rising:'Buying more',flat:'Steady',falling:'Selling'}[o];
+  if(k==='categoryHint')return o.charAt(0).toUpperCase()+o.slice(1);
+  return OPT[o]||o;
+}
+function fieldHtml([k,l,t]){
+  const v=S.data[k];
+  if(t==='n')return `<label>${esc(l)}<input data-k="${k}" data-t="n" type="number" step="any" inputmode="decimal" value="${v==null?'':v}"></label>`;
+  if(t==='e')return `<label>${esc(l)}<select data-k="${k}" data-t="e"><option value=""${v==null?' selected':''}>Not sure</option>${ENUMS[k].map(o=>`<option value="${o}"${v===o?' selected':''}>${esc(optLabel(k,o))}</option>`).join('')}</select></label>`;
+  return `<label>${esc(l)}<select data-k="${k}" data-t="b"><option value=""${v==null?' selected':''}>Not sure</option><option value="yes"${v===true?' selected':''}>Yes</option><option value="no"${v===false?' selected':''}>No</option></select></label>`;
+}
+/* ---------- 12-month price range (rough, formula-based) ---------- */
+const YR_RANGE={'slow grower':[10,16,3],'stalwart':[13,22,7],'fast grower':[16,28,20],'cyclical':[10,14,5],'turnaround':[8,12,5],'asset play':[8,12,3]};
+function yearRange(d,r){
+  const px=d.priceUSD;if(!(px>0)||r.verdict==='Not scored')return null;
+  const t=YR_RANGE[r.cat.name]||[12,20,5],cl=(v,a,b)=>Math.min(b,Math.max(a,v));
+  if(d.profitable!==false&&d.pe>0){
+    let g=d.peg>0?d.pe/d.peg:(d.epsCAGR5y!=null?d.epsCAGR5y:t[2]);
+    g=cl(g,-10,30);
+    if(d.latestQtrEpsGrowthYoY!=null)g=(g*2+cl(d.latestQtrEpsGrowthYoY,-20,40))/3;
+    const eps1=px/d.pe*(1+g/100),m=0.75*d.pe+0.25*cl(d.pe,t[0],t[1]);
+    let bear=eps1*0.85*m*0.8,base=eps1*m,bull=eps1*1.08*m*1.2;
+    bear=Math.max(bear,px*0.4);bull=Math.min(bull,px*2.5);
+    if(!(bear<base))bear=base*0.8;if(!(bull>base))bull=base*1.2;
+    return {bear,base,bull,g,basis:`about ${g.toFixed(0)}% a year profit growth and a multiple of ${m.toFixed(0)} times earnings`};
+  }
+  return {bear:px*0.5,base:px,bull:px*1.8,g:null,basis:'no profits to base it on, so this is only a wide guess around today’s price'};
+}
+function rangeHtml(d,r){
+  const y=yearRange(d,r);if(!y)return '';const px=d.priceUSD,m=n=>'$'+(n>=100?n.toFixed(0):n.toFixed(2)),pc=n=>{const p=(n/px-1)*100;return (p>=0?'+':'')+p.toFixed(0)+'%';};
+  const cell=(l,v,c)=>`<div><div class="muted">${l}</div><b class="mono" style="font-size:20px">${m(v)}</b> <span class="muted">${pc(v)}</span></div>`;
+  return `<section class="panel"><h2>Possible price range, next 12 months</h2><div class="plan-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">${cell('If things go badly',y.bear)}${cell('Middle guess',y.base)}${cell('If things go well',y.bull)}</div><p class="muted" style="margin:0">Today’s price used: ${m(px)} (from Claude’s memory, so check a live quote). Built from ${esc(y.basis)}. It is a rough guide, not a forecast: prices can land outside this range, and a company’s news can change it fast.</p></section>`;
+}
+
+function render(){
+  const d=S.data,r=S.res,q=S.qual,vk=r.verdict==='Not scored'?'Not':r.verdict;
+  const glyph={Buy:'▲',Watch:'●',Avoid:'▼','Not scored':'?'}[r.verdict];
+  const adj=r.adjusted, sure=r.confidence>=0.7?'High':(r.confidence>=0.5?'Medium':'Low');
+  const edgar=`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${encodeURIComponent(d.ticker)}&type=10-K&dateb=&owner=include&count=10`;
+  const flags=[...r.vetoes.map(v=>`<span class="flag bad">Red flag: ${esc(v)}</span>`),...r.caps.map(c=>`<span class="flag">${esc(c)}</span>`),...r.infos.map(c=>`<span class="flag info">${esc(c)}</span>`)].join('');
+  const overrides=r.verdict==='Avoid'&&r.vetoes.length&&adj>=50?`<p class="muted" style="margin:6px 0 0">The score is ${Math.round(adj)}, but a red flag overrides it.</p>`:'';
+  const world=r.macro==null?'<p class="muted">The check of today’s world did not load, so no adjustment was made.</p>':`<ul class="world">${r.mrows.map(m=>{const e=m.exp,mk=e==null?'?':(e>0?'▲':(e<0?'▼':'–')),cl=e==null?'g-nd':(e>0?'g-hi':(e<0?'g-lo':'g-nd')),t=e==null?'No view':(e>0?'Helps':(e<0?'Hurts':'No big effect'));return `<li><span class="mk ${cl}">${mk}</span><span><b>${esc(m.label)}: ${t}.</b> ${esc(m.why)}</span></li>`;}).join('')}</ul><p class="muted" style="margin:0">Net effect on the score: ${r.macro>=0?'+':''}${r.macro.toFixed(1)} points. Today’s news can never move the score by more than 10 points, so one headline cannot flip the answer.</p>`;
+  const team=q&&q.fisher.length?`<ul class="team">${q.fisher.map(f=>`<li><span>${esc(f.label)}${f.evidence?' <span class="muted">— '+esc(f.evidence)+'</span>':''}</span><span class="pips" aria-label="${f.score==null?'not rated':f.score+' out of 5'}">${f.score==null?'–':'■'.repeat(f.score)+'□'.repeat(5-f.score)}</span></li>`).join('')}</ul>`:'';
+  const li=a=>a&&a.length?`<ul class="ul">${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p class="muted">None listed.</p>';
+  const drv=(a,e)=>a.length?`<ul class="ul">${a.map(c=>`<li>${esc(say(c,d,r))}</li>`).join('')}</ul>`:`<p class="muted">${e}</p>`;
+  const hasCards=r.verdict!=='Not scored'||r.base!=null;
+  $('#out').innerHTML=`<div class="wrap" style="gap:18px">
+  <section class="panel">
+   <div class="verdict">
+    <div>
+      <div class="vword v-${vk}"><span aria-hidden="true" style="font-size:.5em">${glyph}</span>${esc(r.verdict)}</div>
+      <p class="vmean">${esc(VMEAN[r.verdict])}</p>
+      <div class="score"><b>${adj==null?'–':adj.toFixed(0)}</b> out of 100</div>
+      <div class="scale"><div class="fill" style="width:${adj==null?0:adj}%"></div><i style="left:50%"></i><i style="left:70%"></i></div>
+      <div class="scalelab"><span>Avoid</span><span>Watch (50)</span><span>Buy (70)</span></div>
+      <div class="sure"><b>How sure we are: ${sure}</b> (${Math.round(r.confidence*100)}%). This depends on how much information we found and how well the AI knows this company.</div>
+    </div>
+    <div>
+      <div class="co"><h2>${esc(d.company||d.ticker)}</h2><span class="meta">${esc(d.ticker)}${d.exchange?' · '+esc(d.exchange):''}${d.sector?' · '+esc(d.sector):''}</span></div>
+      <div class="meta">Type of company: <b>${esc(r.cat.name)}</b>, ${esc(CATDESC[r.cat.name])}.</div>
+      <div class="meta">Figures from Claude’s memory${d.dataAsOf?', covering '+esc(d.dataAsOf):''}. <a href="${edgar}" target="_blank" rel="noopener">See the company’s official filings</a></div>
+      <div class="judge"><h3>The bottom line</h3><p id="ai">${esc(S.ai||plainSummary(r))}</p><p><button class="btn ghost" id="rewrite" type="button" ${S.ai||r.verdict==='Not scored'?'hidden':''}>Write the bottom line with AI</button></p>
+      ${r.why.length&&r.verdict!=='Buy'?`<h3 style="margin-top:12px">${r.verdict==='Watch'?'What is holding it back':'Why'}</h3><ul class="ul">${r.why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:''}${overrides}</div>
+    </div>
+   </div>
+   ${flags?`<div class="flags">${flags}</div>`:''}
+   ${d.notes?`<div class="meta">The AI’s own caution about its figures: ${esc(d.notes)}</div>`:''}
+  </section>
+
+  ${rangeHtml(d,r)}
+
+  ${hasCards?`<section class="panel"><h2>Six questions every long-term buyer should ask</h2><div class="cards">${r.pillars.map(cardHtml).join('')}</div></section>
+
+  <section class="panel cols">
+    <div><h3>What helped most</h3>${drv(r.helpers,'Nothing stood out as strong.')}</div>
+    <div><h3>What hurt most</h3>${drv(r.hurters,'Nothing stood out as weak.')}</div>
+  </section>`:''}
+
+  <section class="panel"><h2>How today’s world affects this company</h2>${world}<p class="muted" style="margin:0">Based on conditions around mid-October 2026: higher interest rates, a patchwork of tariffs, and close scrutiny of AI spending. These are settings, not a live news feed.</p></section>
+
+  ${q?`<section class="panel"><h2>About the business</h2><div><h3>The story in two sentences</h3><p style="margin:6px 0 0;max-width:68ch">${esc(q.story)||'Not available.'}</p></div><div><h3>How good is the team?</h3>${team}</div><div><h3>What customers, staff and rivals tend to say</h3><p style="margin:6px 0 0;max-width:68ch">${esc(q.scuttlebutt)||'Not available.'}</p></div><div class="cols"><div><h3>Main risks</h3>${li(q.risks)}</div><div><h3>What could change this answer</h3>${li(q.watch)}</div></div></section>`:''}
+
+  <section class="panel"><details class="more"><summary>See the detailed numbers behind each question</summary>
+    <p class="muted">The same six questions with the technical measures. The letters L, F and O show which investor’s method each one draws on (Lynch, Fisher, O’Neil).</p>${r.pillars.map(techPillar).join('')}</details></section>
+
+  <section class="panel"><details class="edit" id="editbox" ${S.editOpen?'open':''}><summary>Know better numbers? Correct them here</summary>
+    <p class="muted">Leave a box empty if you do not know. After you fix something you have checked in the company’s filings, press Re-score. No AI is used for re-scoring, so it is instant.</p>
+    <div class="fields">${FIELDS.map(fieldHtml).join('')}</div>
+    <h3 style="margin-top:14px">Settings for today’s world</h3>
+    <div class="fields"><label>What safe 10-year US government bonds pay (%)<input id="teny" type="number" step="any" value="${S.tenY}"></label>${FACTORS.map(([k,l])=>`<label>How much "${esc(l)}" matters today (0 to 2)<input data-f="${k}" type="number" step="0.1" min="0" max="2" value="${S.factors[k]}"></label>`).join('')}</div>
+    <p><button class="btn" id="rescore" type="button">Re-score</button></p>
+  </details></section>
+
+  <div class="foot"><span><b>How the answer is built.</b> First we check the company is big and liquid enough to judge. Then we label its type using Peter Lynch’s six kinds of company. Then we score it on the six questions above (100 points in total). Then today’s world can add or subtract up to 10 points. A Buy needs a score of 70 or more, a fair price, enough reliable information, and no red flag. Under 50, or any red flag, is an Avoid. Everything else is Watch. These weights are a first design that still needs testing. Short-term chart signals and stop-losses from O’Neil’s method are left out because this is for long-term holders.</span><span>This is educational analysis from an AI that can be wrong. It is not personal investment advice. Check the facts in the company’s official filings before you act.</span></div>
+  </div>`;
+  $('#out').hidden=false;
+  bindOut();
+}
+function bindOut(){
+  const eb=$('#editbox');if(eb)eb.addEventListener('toggle',()=>{S.editOpen=eb.open;});
+  const rs=$('#rescore');if(rs)rs.onclick=rescore;
+  const rw=$('#rewrite');if(rw)rw.onclick=async()=>{if(busy)return;busy=true;$('#status').hidden=false;setSteps([['judge','Writing the bottom line','pending']]);$('#stop').hidden=false;rw.hidden=true;await judge();end(true);};
+}
+function rescore(){
+  const d=Object.assign({},S.data);
+  document.querySelectorAll('#editbox [data-k]').forEach(el=>{
+    const k=el.dataset.k,t=el.dataset.t,v=el.value;
+    if(t==='n')d[k]=v===''?null:num(v);else if(t==='e')d[k]=v===''?null:v;else d[k]=v===''?null:(v==='yes');
+  });
+  const ty=num($('#teny').value);S.tenY=ty==null?TEN_Y:ty;
+  document.querySelectorAll('#editbox [data-f]').forEach(el=>{const v=num(el.value);S.factors[el.dataset.f]=v==null?DEFAULT_STATE[el.dataset.f]:clamp(v,0,2);});
+  S.data=d;S.ai='';S.editOpen=true;
+  S.res=score(S.data,S.qual,{factors:S.factors,tenY:S.tenY});
+  render();
+}
+
+/* ---------- wiring ---------- */
+$('#form').addEventListener('submit',e=>{e.preventDefault();analyze($('#q').value);});
+document.querySelectorAll('.chip[data-q]').forEach(b=>b.addEventListener('click',()=>{$('#q').value=b.dataset.q;analyze(b.dataset.q);}));
+$('#stop').addEventListener('click',()=>{ctls.forEach(c=>c.abort());});
+$('#manual').addEventListener('click',()=>{
+  S={data:normFacts({ticker:'MANUAL',company:$('#q').value||'Your stock',resolved:true,dataAsOf:'entered by hand'}),qual:null,res:null,ai:'',factors:Object.assign({},DEFAULT_STATE),tenY:TEN_Y,editOpen:true};
+  S.res=score(S.data,S.qual,{factors:S.factors,tenY:S.tenY});render();
+});
+</script>
+<script id="picksdata">
+/* DAILY-REFRESH DATA: updated automatically each weekday after the close */
+const PICKS_ASOF='October 19, 2026';
+const PICKS_ASOF_ISO='2026-10-19';
+const FWD_PE={NOK:21.81,ITUB:10.41,LYG:9.53,BBD:7.08,BTG:6.19,WU:4.33,AGNC:5.84,RITM:3.99,CFFN:11.67,CRCT:30.64,GRAB:16.47,T:9.61,CMCSA:6.22,NU:14.86,HBAN:9.42,SOFI:19.87,PINS:10.25,DBX:11.45,NKE:28.41,AMKR:15.38,VZ:8.71,PFE:10.67,PYPL:10.21,SCHW:11.91,WFC:10.54,BAC:10.05,UBER:17.33,HPE:12.01,ON:18.78,NVDA:17.94,CSCO:20.7,QCOM:18.73,ABT:17.96,ACN:16.15,CRM:16.53,IBM:18.54,AMZN:27.9,TJX:27.25,C:10.12,KEY:10.14,RF:9.89,CFG:10.22,USB:10.27,MS:13.45,COF:9.11,PGR:13.63,KO:27.49,PEP:15.78,PG:22.6,WMT:39.51,SBUX:33.33,MCD:18.38,TGT:16.5,F:6.86,GM:5.84,MO:13.02,KDP:14.19,JNJ:22.79,MRK:17.54,BMY:9.73,GILD:17.02,CVS:11.41,MDT:15.45,ABBV:18.76,INTC:53.59,MCHP:18.82,GLW:35.47,ANET:38.05,HPQ:10.04,ORCL:15.22,ADBE:9.2,UPS:12.56,UNP:21.09,XOM:12.51,CVX:12.12,KMI:22.57,TMUS:12.41};
+const PICK_POOL=[{"t":"T","n":"AT&T","px":23.2,"d":{"sector":"Communication","subIndustry":"Telecom","marketCapUSDm":158975,"priceUSD":23.2,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":-1.6,"epsCAGR5y":2.8,"roe":18.3,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"below","pe":7.65,"peg":0.91,"dividendYieldPct":4.79,"debtToEbitda":3.25,"interestCoverage":3.86,"shareCountChange5yPct":-2.15,"institutionalOwnershipPct":null,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":6.5,"twoQuartersSlowing":false},"f":[4,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Pays 4.7% while you wait, and the profit it earns per share is about 13% of the price, far above what the 10-year Treasury pays. It is a slow, steady phone-and-fiber business, not a growth story.","risk":"Heavy debt (about 3x yearly cash earnings) and falling sales. Higher rates make that debt costlier."},{"t":"CMCSA","n":"Comcast","px":21.9,"d":{"sector":"Communication","subIndustry":"Cable and media","marketCapUSDm":77720,"priceUSD":21.9,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":1.5,"epsCAGR5y":0.4,"roe":11.5,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":7.09,"peg":null,"dividendYieldPct":6.03,"debtToEbitda":2.56,"interestCoverage":null,"shareCountChange5yPct":-4.74,"institutionalOwnershipPct":null,"categoryHint":"slow grower"},"f":[3,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Priced at about 7 times earnings with a 6% dividend, and it buys back nearly 5% of its own shares every year. The market is pricing in cable-TV decline; you are paid well to wait.","risk":"Broadband customers are slowly leaving for fixed-wireless and fiber, and profit per share is flat over several years."},{"t":"NU","n":"Nu Holdings","px":14.51,"d":{"sector":"Financials","subIndustry":"Digital bank","marketCapUSDm":70088,"priceUSD":14.51,"avgDailyDollarVolumeUSDm":700,"profitable":true,"revenueCAGR5y":69,"epsCAGR5y":null,"roe":31.6,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":19.76,"peg":0.53,"dividendYieldPct":null,"shareCountChange5yPct":0.26,"institutionalOwnershipPct":62,"isADR":true,"categoryHint":"fast grower","latestQtrEpsGrowthYoY":69,"twoQuartersSlowing":false},"f":[5,4,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":1}},"ai":"Latin America\u2019s biggest digital bank: revenue went from under $1 billion to about $7 billion in four years with a 32% return on equity and a PEG of about 0.5 (cheap for the growth).","risk":"It is a foreign (Cayman) company earning in Brazil, Mexico and Colombia, so currencies and local credit losses matter. That is why it is capped at Watch."},{"t":"HBAN","n":"Huntington Bancshares","px":15.23,"d":{"sector":"Financials","subIndustry":"Regional bank","marketCapUSDm":30769,"priceUSD":15.23,"avgDailyDollarVolumeUSDm":400,"profitable":true,"revenueCAGR5y":6.6,"epsCAGR5y":11.5,"roe":9,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":11.86,"peg":0.84,"dividendYieldPct":4.07,"shareCountChange5yPct":18.32,"institutionalOwnershipPct":null,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":-2.9,"twoQuartersSlowing":false},"f":[3,3,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A mid-size regional bank growing through deals, with a 4% dividend and a 12x price-to-earnings. Analysts expect revenue growth of about 15% as acquisitions are absorbed.","risk":"Share count is up 18% this year, which dilutes owners, and a 10-year Treasury above 5% weighs on bank bond holdings."},{"t":"SOFI","n":"SoFi Technologies","px":14.3,"d":{"sector":"Financials","subIndustry":"Digital lender","marketCapUSDm":18467,"priceUSD":14.3,"avgDailyDollarVolumeUSDm":600,"profitable":true,"revenueCAGR5y":38,"epsCAGR5y":null,"roe":7.1,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":30.11,"peg":0.53,"dividendYieldPct":null,"shareCountChange5yPct":14.49,"institutionalOwnershipPct":51,"categoryHint":"fast grower"},"f":[4,4,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Fast revenue growth (about 38% a year) and recently profitable, but its return on equity is only 7% and the stock is priced for much more.","risk":"Share count is up 14% in a year (dilution) and its profits are still very small next to its price."},{"t":"PINS","n":"Pinterest","px":22.34,"d":{"sector":"Communication","subIndustry":"Social media","marketCapUSDm":12654,"priceUSD":22.34,"avgDailyDollarVolumeUSDm":250,"profitable":true,"revenueCAGR5y":13.2,"epsCAGR5y":null,"roe":6.5,"marginVsPeers":"below","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":170.93,"peg":0.39,"dividendYieldPct":null,"debtToEbitda":3.32,"shareCountChange5yPct":null,"institutionalOwnershipPct":94,"categoryHint":"fast grower"},"f":[4,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Revenue is growing about 13% a year and it throws off a 10% free-cash-flow yield, but reported profit per share has fallen to $0.13 over the last 12 months.","risk":"Earnings are thin and uneven, and a few ad platforms dominate. A hard company to be sure about."},{"t":"DBX","n":"Dropbox","px":35.94,"d":{"sector":"Technology","subIndustry":"Software","marketCapUSDm":7810,"priceUSD":35.94,"avgDailyDollarVolumeUSDm":90,"profitable":true,"revenueCAGR5y":4,"epsCAGR5y":20.9,"roe":null,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"below","pe":19.89,"peg":3.26,"dividendYieldPct":null,"debtToEbitda":4.48,"interestCoverage":4.11,"shareCountChange5yPct":-18.19,"institutionalOwnershipPct":null,"categoryHint":"fast grower"},"f":[2,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":-2}},"ai":"A very profitable file-storage business (27% operating margin) that shrinks its share count about 18% a year, but its sales barely grow.","risk":"AI assistants threaten simple storage and the debt is heavy (4.5x yearly cash earnings). Price is high for the growth."},{"t":"NKE","n":"Nike","px":37.21,"d":{"sector":"Consumer","subIndustry":"Footwear and apparel","marketCapUSDm":55269,"priceUSD":37.21,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":-0.2,"epsCAGR5y":-13.5,"roe":21.6,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":17.83,"peg":9.49,"dividendYieldPct":4.41,"debtToEbitda":1.84,"interestCoverage":18.8,"shareCountChange5yPct":null,"institutionalOwnershipPct":null,"categoryHint":"turnaround"},"f":[4,3,3,3],"ex":{"tariffs":{"score":-2},"rates":{"score":0},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":0}},"ai":"A great brand down 43% in a year, with sales flat for four years and profit per share down by about half from its peak. This is a turnaround bet, and Lynch warned turnarounds rarely work.","risk":"Tariffs on Asian-made shoes hit directly, and there is no sign yet that the recovery has started."},{"t":"AMKR","n":"Amkor Technology","px":41.89,"d":{"sector":"Technology","subIndustry":"Chip packaging","marketCapUSDm":10407,"priceUSD":41.89,"avgDailyDollarVolumeUSDm":150,"profitable":true,"revenueCAGR5y":2.2,"epsCAGR5y":-13,"roe":12.5,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"inline","pe":18.8,"peg":0.59,"dividendYieldPct":null,"debtToEbitda":1.96,"interestCoverage":8.4,"shareCountChange5yPct":null,"institutionalOwnershipPct":48,"categoryHint":"cyclical"},"f":[3,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":1}},"ai":"Does the packaging step of advanced chips, so it rides AI demand, and analysts see about 30% yearly profit growth ahead. But so far its profit has gone the other way.","risk":"A cyclical, thin-margin business with negative free cash flow right now, exposed to Asia supply chains."},{"t":"VZ","n":"Verizon","px":44.15,"d":{"sector":"Communication","subIndustry":"Telecom","marketCapUSDm":183431,"priceUSD":44.15,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":0.8,"epsCAGR5y":-6.6,"roe":15.8,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"below","pe":11.5,"peg":1.19,"dividendYieldPct":6.41,"debtToEbitda":3.39,"interestCoverage":4.36,"shareCountChange5yPct":null,"institutionalOwnershipPct":null,"categoryHint":"slow grower"},"f":[3,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A 6.3% dividend and a P/E near 12. Reliable cash flow, but profit per share has drifted down for four years.","risk":"Large debt and no growth. Income only, not appreciation."},{"t":"PFE","n":"Pfizer","px":29.44,"d":{"sector":"Healthcare","subIndustry":"Pharmaceuticals","marketCapUSDm":167802,"priceUSD":29.44,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":-6.3,"epsCAGR5y":-22,"roe":5,"marginVsPeers":"above","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":38.7,"peg":null,"dividendYieldPct":5.85,"debtToEbitda":2.41,"interestCoverage":7,"shareCountChange5yPct":null,"institutionalOwnershipPct":null,"categoryHint":"slow grower"},"f":[3,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A 5.8% dividend, but sales are down from $81 billion to $63 billion since the Covid peak and analysts expect further declines next year.","risk":"Patent expirations and drug-pricing and tariff pressure. Cheap for a reason."},{"t":"PYPL","n":"PayPal","px":56.51,"d":{"sector":"Financials","subIndustry":"Payments","marketCapUSDm":48337,"priceUSD":56.51,"avgDailyDollarVolumeUSDm":700,"profitable":true,"revenueCAGR5y":6.9,"epsCAGR5y":11.3,"roe":24.5,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"below","pe":10.65,"peg":1.79,"dividendYieldPct":null,"debtToEbitda":2.15,"interestCoverage":13,"netCashPerShareUSD":-3.47,"shareCountChange5yPct":-7.83,"institutionalOwnershipPct":78,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":-3.1,"twoQuartersSlowing":false},"f":[3,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":-1}},"ai":"A P/E of about 11 with a 13.6% free-cash-flow yield and a 24% return on equity, while it shrinks its share count about 8% a year. A mature, cash-rich payments company the market has written off.","risk":"Checkout competition from Apple Pay and others; sales growth of only 4\u20137%."},{"t":"SCHW","n":"Charles Schwab","px":89.58,"d":{"sector":"Financials","subIndustry":"Brokerage","marketCapUSDm":154914,"priceUSD":89.58,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":6.6,"epsCAGR5y":13.2,"roe":21.1,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":15.31,"peg":0.58,"dividendYieldPct":null,"shareCountChange5yPct":-4.08,"institutionalOwnershipPct":85,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":28.6,"twoQuartersSlowing":false},"f":[4,4,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Strong, fast-growing brokerage: profit per share about $5.85 over 12 months versus $2.99 two years ago, 21% return on equity, PEG about 0.6, and shares being retired about 4% a year.","risk":"It earns from client cash and trading activity, which shift with the market; a sharp drop would hurt."},{"t":"WFC","n":"Wells Fargo","px":81.8,"d":{"sector":"Financials","subIndustry":"Large bank","marketCapUSDm":245537,"priceUSD":81.8,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":-1,"epsCAGR5y":5.4,"roe":12.9,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"below","pe":11.54,"peg":0.82,"dividendYieldPct":null,"shareCountChange5yPct":-5.84,"institutionalOwnershipPct":79,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":12.7,"twoQuartersSlowing":false},"f":[3,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A big bank at about 12 times earnings; profit per share has grown from $5.08 to $6.88 over the period and shares are being bought back at about 6% a year.","risk":"Revenue has been flat for four years; this is a catch-up and cost-cutting story, not a growth story."},{"t":"BAC","n":"Bank of America","px":50.39,"d":{"sector":"Financials","subIndustry":"Large bank","marketCapUSDm":348835,"priceUSD":50.39,"avgDailyDollarVolumeUSDm":1200,"profitable":true,"revenueCAGR5y":3.5,"epsCAGR5y":1.6,"roe":10.7,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":12.0,"peg":0.64,"dividendYieldPct":2.34,"shareCountChange5yPct":-4.57,"institutionalOwnershipPct":71,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":-14,"twoQuartersSlowing":false},"f":[3,3,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A well-run, diversified bank at about 12 times earnings, retiring about 4.6% of its shares a year; it is steady, not exciting.","risk":"Long-term profit growth is slow (about 2% a year) and rising long-term yields weigh on its bond portfolio."},{"t":"UBER","n":"Uber","px":69.96,"d":{"sector":"Technology","subIndustry":"Ride-sharing and delivery","marketCapUSDm":142893,"priceUSD":69.96,"avgDailyDollarVolumeUSDm":1500,"profitable":true,"revenueCAGR5y":31.4,"epsCAGR5y":null,"roe":37.2,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":15.26,"peg":0.64,"dividendYieldPct":null,"debtToEbitda":1.87,"interestCoverage":14.5,"netCashPerShareUSD":-2.32,"shareCountChange5yPct":-2.28,"institutionalOwnershipPct":84,"categoryHint":"fast grower"},"f":[5,4,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":-1},"ai":{"score":0}},"ai":"Revenue tripled in four years to $52 billion, profit has turned strongly positive, free cash flow yield is about 7%, and the P/E is only about 15 with a PEG near 0.6.","risk":"Self-driving cars could either help or replace its drivers; reported profits include one-off tax gains, so judge on cash flow."},{"t":"HPE","n":"Hewlett Packard Enterprise","px":55.87,"d":{"sector":"Technology","subIndustry":"Networking and servers","marketCapUSDm":74162,"priceUSD":55.87,"avgDailyDollarVolumeUSDm":500,"profitable":true,"revenueCAGR5y":5.4,"epsCAGR5y":null,"roe":10.9,"marginVsPeers":"below","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":28.48,"peg":0.43,"dividendYieldPct":null,"debtToEbitda":2.82,"interestCoverage":3.67,"netCashPerShareUSD":-10.61,"shareCountChange5yPct":6,"institutionalOwnershipPct":90,"categoryHint":"stalwart"},"f":[3,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":1}},"ai":"A big jump in sales after buying Juniper Networks, with a 12x forward P/E, but profits are uneven and debt is rising.","risk":"Acquisition digestion, net debt of about $14 billion, and share count up 6%."},{"t":"ON","n":"ON Semiconductor","px":73.12,"d":{"sector":"Technology","subIndustry":"Analog chips","marketCapUSDm":28468,"priceUSD":73.12,"avgDailyDollarVolumeUSDm":500,"profitable":true,"revenueCAGR5y":-2.9,"epsCAGR5y":-40,"roe":8.3,"marginVsPeers":"above","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":46.85,"peg":0.54,"dividendYieldPct":null,"debtToEbitda":2.15,"interestCoverage":23.4,"netCashPerShareUSD":-2.17,"shareCountChange5yPct":-4.88,"institutionalOwnershipPct":98,"categoryHint":"cyclical"},"f":[3,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":0}},"ai":"A cyclical chipmaker coming off a downturn: profit per share is up from $0.29 last year to $1.56 over 12 months, but still far below the $4\u20135 peak.","risk":"Price already assumes a strong recovery (46x trailing profit)."},{"t":"NVDA","n":"Nvidia","px":217.09,"d":{"sector":"Technology","subIndustry":"AI chips","marketCapUSDm":5241467,"priceUSD":217.09,"avgDailyDollarVolumeUSDm":30000,"profitable":true,"revenueCAGR5y":68,"epsCAGR5y":88,"roe":117,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":27.45,"peg":0.35,"dividendYieldPct":null,"debtToEbitda":0.19,"interestCoverage":425,"netCashPerShareUSD":0.98,"shareCountChange5yPct":-1.04,"institutionalOwnershipPct":71,"categoryHint":"fast grower","latestQtrEpsGrowthYoY":128,"twoQuartersSlowing":false},"f":[5,5,5,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":-2},"energy":{"score":0},"ai":{"score":2}},"ai":"The engine of the AI build-out: revenue about $303 billion over 12 months, 65% operating margin, no real debt, and still only about 27x trailing and 18x forward earnings.","risk":"Customers\u2019 AI spending is being questioned, export limits and Taiwan are real risks, and it is a $5 trillion company, so it must keep growing just to hold its price."},{"t":"CSCO","n":"Cisco","px":106.5,"d":{"sector":"Technology","subIndustry":"Networking","marketCapUSDm":419881,"priceUSD":106.5,"avgDailyDollarVolumeUSDm":1500,"profitable":true,"revenueCAGR5y":5.3,"epsCAGR5y":4.2,"roe":27.3,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":31.98,"peg":2.06,"dividendYieldPct":1.51,"debtToEbitda":1.59,"interestCoverage":10.9,"netCashPerShareUSD":-3.87,"shareCountChange5yPct":-0.28,"institutionalOwnershipPct":82,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":51.6,"twoQuartersSlowing":false},"f":[4,4,4,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":1}},"ai":"A high-quality networking business (25% operating margin, 27% ROE) selling AI data-center gear, but the stock has already run to 32x earnings.","risk":"You pay a growth price for 4\u20135% growth."},{"t":"QCOM","n":"Qualcomm","px":173.53,"d":{"sector":"Technology","subIndustry":"Mobile chips","marketCapUSDm":185306,"priceUSD":173.53,"avgDailyDollarVolumeUSDm":1500,"profitable":true,"revenueCAGR5y":7.2,"epsCAGR5y":2,"roe":33.8,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":20.2,"peg":3.03,"dividendYieldPct":2.08,"debtToEbitda":1.25,"interestCoverage":15.1,"netCashPerShareUSD":-6.51,"shareCountChange5yPct":-3.65,"institutionalOwnershipPct":84,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":-23,"twoQuartersSlowing":true},"f":[4,4,4,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":1}},"ai":"Strong margins and a 34% return on equity at 20x earnings, but analysts see only about 2% yearly profit growth, so the price is not cheap for the growth.","risk":"Apple building its own modem and the cell-phone cycle."},{"t":"ABT","n":"Abbott Laboratories","px":104.05,"d":{"sector":"Healthcare","subIndustry":"Medical devices","marketCapUSDm":180046,"priceUSD":104.05,"avgDailyDollarVolumeUSDm":700,"profitable":true,"revenueCAGR5y":0.7,"epsCAGR5y":-1.4,"roe":10.6,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":33.67,"peg":1.94,"dividendYieldPct":2.22,"debtToEbitda":2.71,"interestCoverage":10.8,"netCashPerShareUSD":-15.68,"shareCountChange5yPct":-0.08,"institutionalOwnershipPct":81,"categoryHint":"stalwart"},"f":[4,4,4,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A quality medical-devices company, but at 34x trailing earnings with flat revenue over the period it is priced for more than the numbers show.","risk":"High price, modest growth."},{"t":"ACN","n":"Accenture","px":236.93,"d":{"sector":"Technology","subIndustry":"IT consulting","marketCapUSDm":139963,"priceUSD":236.93,"avgDailyDollarVolumeUSDm":900,"profitable":true,"revenueCAGR5y":4.8,"epsCAGR5y":6.1,"roe":26,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":17.46,"peg":2.33,"dividendYieldPct":null,"debtToEbitda":0.93,"interestCoverage":40,"netCashPerShareUSD":-0.95,"shareCountChange5yPct":-2.36,"institutionalOwnershipPct":85,"categoryHint":"stalwart"},"f":[3,3,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":-2}},"ai":"A strong balance sheet, 26% ROE and a 8.6% free-cash-flow yield at 17x earnings, but consulting is exactly the work AI is starting to automate.","risk":"AI-driven price pressure; growth is slowing."},{"t":"CRM","n":"Salesforce","px":242.45,"d":{"sector":"Technology","subIndustry":"Software","marketCapUSDm":199540,"priceUSD":242.45,"avgDailyDollarVolumeUSDm":1500,"profitable":true,"revenueCAGR5y":11.9,"epsCAGR5y":null,"roe":19.4,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"inline","pe":22.46,"peg":0.94,"dividendYieldPct":null,"debtToEbitda":3.14,"interestCoverage":9.4,"netCashPerShareUSD":-37.6,"shareCountChange5yPct":-7.44,"institutionalOwnershipPct":87,"categoryHint":"stalwart"},"f":[4,4,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Profit per share has risen from $0.21 to $7.80 in three years while shares shrink about 7% a year; 22x trailing and 16x forward earnings with a PEG under 1.","risk":"AI agents could cut the number of software seats it sells."},{"t":"IBM","n":"IBM","px":236.39,"d":{"sector":"Technology","subIndustry":"IT and software","marketCapUSDm":222714,"priceUSD":236.39,"avgDailyDollarVolumeUSDm":1000,"profitable":true,"revenueCAGR5y":4.2,"epsCAGR5y":15.1,"roe":34.5,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"inline","pe":21.02,"peg":2.77,"dividendYieldPct":null,"debtToEbitda":3.67,"interestCoverage":6.6,"netCashPerShareUSD":-60.65,"shareCountChange5yPct":1.26,"institutionalOwnershipPct":66,"categoryHint":"stalwart"},"f":[3,4,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":1}},"ai":"Moving toward software and AI services, with a 34% ROE and a P/E of about 21.","risk":"Heavy debt, and revenue growth is only about 4%. Not cheap for the growth."},{"t":"AMZN","n":"Amazon","px":262.45,"d":{"sector":"Consumer","subIndustry":"E-commerce and cloud","marketCapUSDm":2834460,"priceUSD":262.45,"avgDailyDollarVolumeUSDm":12000,"profitable":true,"revenueCAGR5y":11.1,"epsCAGR5y":22,"roe":30.6,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":21.1,"peg":1.34,"dividendYieldPct":null,"debtToEbitda":1.35,"interestCoverage":28,"netCashPerShareUSD":-11.93,"shareCountChange5yPct":0.88,"institutionalOwnershipPct":68,"categoryHint":"stalwart"},"f":[5,5,4,4],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":2}},"ai":"Cloud and retail growing together: revenue about $776 billion over 12 months, profit per share $12.44 versus $7.17 last year, at about 20x earnings.","risk":"Free cash flow is slightly negative because of huge AI data-center spending, and tariffs affect its retail side."},{"t":"TJX","n":"TJX Companies","px":147.36,"d":{"sector":"Consumer","subIndustry":"Off-price retail","marketCapUSDm":162093,"priceUSD":147.36,"avgDailyDollarVolumeUSDm":700,"profitable":true,"revenueCAGR5y":5.6,"epsCAGR5y":15.9,"roe":62.2,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"above","pe":27.28,"peg":2.74,"dividendYieldPct":null,"debtToEbitda":1.12,"interestCoverage":101,"netCashPerShareUSD":-7.55,"shareCountChange5yPct":-1.1,"institutionalOwnershipPct":94,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":23.6,"twoQuartersSlowing":false},"f":[4,3,4,5],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A consistent compounder: profit per share about 16% a year for four years, a 30% ROIC, and a business that benefits when shoppers trade down.","risk":"At 27x earnings the price already assumes the good run continues."},{"t":"C","n":"Citigroup","px":121.69,"d":{"sector":"Financials","subIndustry":"Large bank","marketCapUSDm":201420,"priceUSD":121.69,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":0.2,"epsCAGR5y":-8.9,"roe":9.35,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"below","pe":12.18,"peg":0.4,"dividendYieldPct":2.2,"shareCountChange5yPct":-7.51,"institutionalOwnershipPct":82.4,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":53.2,"twoQuartersSlowing":false},"f":[3,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":0}},"ai":"Cheap bank at about 12x earnings (10x expected), shares retired about 7.5% a year, and profits are rebounding: $10.20 per share over 12 months vs $6.99 last year.","risk":"Return on equity is only 9%, profits swing with trading and credit, and the long restructuring still has to prove out."},{"t":"KEY","n":"KeyCorp","px":19.99,"d":{"sector":"Financials","subIndustry":"Regional bank","marketCapUSDm":21330,"priceUSD":19.99,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":-2.3,"epsCAGR5y":-12.8,"roe":10.33,"marginVsPeers":"below","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":11.69,"peg":0.6,"dividendYieldPct":4.1,"shareCountChange5yPct":6.22,"institutionalOwnershipPct":88.5,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":25.7,"twoQuartersSlowing":false},"f":[3,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Regional bank with a 4.1% dividend at about 12x earnings, recovering after a weak 2024.","risk":"Share count is up 6% in a year, profit is still well below 2021, and long-term rates above 5% squeeze bank balance sheets."},{"t":"RF","n":"Regions Financial","px":27.18,"d":{"sector":"Financials","subIndustry":"Regional bank","marketCapUSDm":23100,"priceUSD":27.18,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":0.3,"epsCAGR5y":-2,"roe":12.38,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":10.77,"peg":1.01,"dividendYieldPct":4.42,"shareCountChange5yPct":-4.5,"institutionalOwnershipPct":86.7,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":16.4,"twoQuartersSlowing":false},"f":[3,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Steady regional bank: 4.4% dividend, about 11x earnings and shares retired about 4.5% a year.","risk":"Growth is slow: revenue is flat over four years."},{"t":"CFG","n":"Citizens Financial","px":63.36,"d":{"sector":"Financials","subIndustry":"Regional bank","marketCapUSDm":26690,"priceUSD":63.36,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":2,"epsCAGR5y":-7,"roe":8.9,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"inline","pe":12.61,"peg":0.41,"dividendYieldPct":2.9,"shareCountChange5yPct":-3.85,"institutionalOwnershipPct":98.5,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":41.3,"twoQuartersSlowing":false},"f":[3,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Regional bank at about 12.6x earnings; analysts expect about 25% yearly profit growth and profit is up to $4.59 over 12 months from $3.03 in 2024.","risk":"Profit per share is still below 2021 levels and ROE is under 9%."},{"t":"USB","n":"U.S. Bancorp","px":58.01,"d":{"sector":"Financials","subIndustry":"Large regional bank","marketCapUSDm":90380,"priceUSD":58.01,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":2.5,"epsCAGR5y":-2.4,"roe":12.84,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":11.42,"peg":0.99,"dividendYieldPct":3.72,"shareCountChange5yPct":-0.24,"institutionalOwnershipPct":82.5,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":9.8,"twoQuartersSlowing":false},"f":[3,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A 3.7% dividend at about 11x earnings; profit per share has risen from $3.27 in 2023 to $5.14 over 12 months.","risk":"Revenue is nearly flat over four years."},{"t":"MS","n":"Morgan Stanley","px":178.47,"d":{"sector":"Financials","subIndustry":"Wealth management and investment bank","marketCapUSDm":279310,"priceUSD":178.47,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":4.1,"epsCAGR5y":6.2,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":14.32,"peg":1.17,"dividendYieldPct":2.58,"shareCountChange5yPct":-1.42,"institutionalOwnershipPct":63.1,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":8.2,"twoQuartersSlowing":false},"f":[4,3,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Wealth-management-heavy bank: profit per share $12.61 over 12 months vs $8.03 in 2021, 14x earnings, 2.6% dividend.","risk":"Part of its profit depends on trading and deal activity, which is volatile."},{"t":"COF","n":"Capital One","px":199.83,"d":{"sector":"Financials","subIndustry":"Credit cards and banking","marketCapUSDm":122590,"priceUSD":199.83,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":0.3,"roe":9.03,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"above","pe":12.34,"peg":0.93,"dividendYieldPct":1.6,"institutionalOwnershipPct":88.2,"categoryHint":"stalwart"},"f":[4,4,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Credit-card leader after buying Discover: profit per share $16.19 over 12 months at only 12x earnings (9x expected).","risk":"Merger digestion and rising consumer credit losses in a downturn; the Discover deal also added many shares."},{"t":"PGR","n":"Progressive","px":219.11,"d":{"sector":"Financials","subIndustry":"Auto insurance","marketCapUSDm":126970,"priceUSD":219.11,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":16.4,"epsCAGR5y":35.8,"roe":33.24,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":11.01,"dividendYieldPct":0.18,"debtToEbitda":0.54,"interestCoverage":47.8,"netCashPerShareUSD":-14.48,"shareCountChange5yPct":-0.43,"institutionalOwnershipPct":89.3,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":-2,"twoQuartersSlowing":true},"f":[4,5,5,4],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Auto insurer with a 33% return on equity; profit per share rose from $5.66 in 2021 to $19.85 over 12 months.","risk":"Analysts expect profit to fall about 4% a year as insurance pricing cools, and insurance runs in cycles."},{"t":"KO","n":"Coca-Cola","px":93.42,"d":{"sector":"Consumer Staples","subIndustry":"Beverages","marketCapUSDm":401940,"priceUSD":93.42,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":5.5,"epsCAGR5y":7.8,"roe":42.05,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":28.08,"peg":3.71,"dividendYieldPct":2.27,"debtToEbitda":2.54,"interestCoverage":10.19,"netCashPerShareUSD":-6.49,"shareCountChange5yPct":-0.09,"institutionalOwnershipPct":67.1,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":17,"twoQuartersSlowing":false},"f":[3,3,5,4],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A world-class brand with a 42% return on equity and a 2.3% dividend.","risk":"At 28x earnings with about 8% expected growth, the price is full."},{"t":"PEP","n":"PepsiCo","px":133.57,"d":{"sector":"Consumer Staples","subIndustry":"Beverages and snacks","marketCapUSDm":182020,"priceUSD":133.57,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":4.3,"epsCAGR5y":2.2,"roe":52.19,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":16.81,"peg":2.85,"dividendYieldPct":4.43,"debtToEbitda":2.49,"interestCoverage":14.25,"netCashPerShareUSD":-29.94,"shareCountChange5yPct":-0.26,"institutionalOwnershipPct":80.1,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":17.4,"twoQuartersSlowing":false},"f":[3,3,4,4],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":-1},"ai":{"score":0}},"ai":"A 4.4% dividend and a 52% return on equity at about 17x earnings.","risk":"Profit per share is below its 2022 level and the stock is down 13% in a year."},{"t":"PG","n":"Procter & Gamble","px":157.69,"d":{"sector":"Consumer Staples","subIndustry":"Household products","marketCapUSDm":366260,"priceUSD":157.69,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":2.1,"epsCAGR5y":3.3,"roe":30.29,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":23.81,"peg":4.53,"dividendYieldPct":2.76,"debtToEbitda":1.39,"interestCoverage":24.6,"netCashPerShareUSD":-10.81,"shareCountChange5yPct":-1.3,"institutionalOwnershipPct":71.3,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":-15.5,"twoQuartersSlowing":false},"f":[3,4,5,4],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":-1},"ai":{"score":0}},"ai":"Very consistent: profit per share up from $5.81 (FY22) to $6.62 and a 30% return on equity.","risk":"At 24x earnings with about 4% expected growth, you pay a premium for stability."},{"t":"WMT","n":"Walmart","px":118.7,"d":{"sector":"Consumer","subIndustry":"Retail","marketCapUSDm":941740,"priceUSD":118.7,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":5.6,"epsCAGR5y":13.9,"roe":22.31,"marginVsPeers":"below","marginTrend":"stable","revenueGrowthVsIndustry":"above","pe":43.01,"peg":3.7,"dividendYieldPct":0.83,"debtToEbitda":1.57,"interestCoverage":12.31,"netCashPerShareUSD":-8.02,"shareCountChange5yPct":-0.7,"institutionalOwnershipPct":44.2,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":-9.1,"twoQuartersSlowing":false},"f":[4,4,5,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":1}},"ai":"Sales of $736 billion and profit per share up from $1.62 to $2.76 over four years.","risk":"At 43x earnings it is priced well above any growth it shows, and its profit margin is only about 4%."},{"t":"SBUX","n":"Starbucks","px":97.87,"d":{"sector":"Consumer","subIndustry":"Restaurants","marketCapUSDm":111550,"priceUSD":97.87,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":6.4,"epsCAGR5y":-17.6,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"inline","pe":56.22,"peg":1.69,"dividendYieldPct":2.58,"debtToEbitda":2.53,"interestCoverage":7.15,"netCashPerShareUSD":-16.53,"shareCountChange5yPct":0.32,"institutionalOwnershipPct":86.2,"categoryHint":"turnaround"},"f":[3,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A turnaround of a famous brand: sales growing, profit per share down from $3.54 to $1.74 over four years.","risk":"At 56x trailing profit, much of the recovery is already priced in."},{"t":"MCD","n":"McDonald's","px":242.67,"d":{"sector":"Consumer","subIndustry":"Restaurants","marketCapUSDm":171720,"priceUSD":242.67,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":3.7,"epsCAGR5y":4.5,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":19.71,"peg":2.73,"dividendYieldPct":3.18,"debtToEbitda":3.28,"interestCoverage":7.79,"netCashPerShareUSD":-76,"shareCountChange5yPct":-0.73,"institutionalOwnershipPct":75.7,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":5.7,"twoQuartersSlowing":true},"f":[3,3,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A franchise machine with a 46% operating margin and a 3.2% dividend.","risk":"About 6% expected growth at 20x earnings, with lower-income customers trading down."},{"t":"TGT","n":"Target","px":153.29,"d":{"sector":"Consumer","subIndustry":"Retail","marketCapUSDm":69640,"priceUSD":153.29,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":-0.3,"epsCAGR5y":-12.9,"roe":26.41,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":15.9,"peg":2.9,"dividendYieldPct":3.03,"debtToEbitda":2.07,"interestCoverage":12.66,"netCashPerShareUSD":-30.35,"shareCountChange5yPct":-0.51,"institutionalOwnershipPct":88.3,"categoryHint":"turnaround"},"f":[2,3,3,3],"ex":{"tariffs":{"score":-2},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Reasonably priced for a big retailer at about 16x earnings with a 3% dividend.","risk":"Profit per share fell from $14.10 to $8.13 and sales are flat; rivals Walmart and Amazon keep taking share."},{"t":"F","n":"Ford","px":12.18,"d":{"sector":"Consumer","subIndustry":"Automaker","marketCapUSDm":48570,"priceUSD":12.18,"avgDailyDollarVolumeUSDm":800,"profitable":false,"revenueCAGR5y":8.3,"roe":-18.25,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"below","peg":0.26,"dividendYieldPct":4.93,"debtToEbitda":19.05,"interestCoverage":1.11,"netCashPerShareUSD":-35.38,"shareCountChange5yPct":-0.81,"institutionalOwnershipPct":66.8,"categoryHint":"cyclical"},"f":[2,3,3,3],"ex":{"tariffs":{"score":-2},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A 4.9% dividend and a price of only about 7x expected earnings.","risk":"The company lost money over the last 12 months (-$1.86 per share), debt is very heavy (19x yearly cash earnings), and tariffs and EV spending hurt."},{"t":"GM","n":"General Motors","px":82.75,"d":{"sector":"Consumer","subIndustry":"Automaker","marketCapUSDm":72610,"priceUSD":82.75,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":9.9,"epsCAGR5y":-16.4,"roe":3.16,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"inline","pe":41.68,"peg":0.35,"dividendYieldPct":0.87,"debtToEbitda":7.65,"interestCoverage":14.99,"netCashPerShareUSD":-118.6,"shareCountChange5yPct":-10.37,"institutionalOwnershipPct":90.4,"categoryHint":"cyclical"},"f":[2,3,4,3],"ex":{"tariffs":{"score":-2},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Cheap on expected earnings (about 6x) and it retires about 10% of its shares a year.","risk":"Tariffs, EV losses and large debt; profit per share fell from $6.70 in 2021 to $3.27 last year."},{"t":"MO","n":"Altria","px":74.09,"d":{"sector":"Consumer","subIndustry":"Tobacco","marketCapUSDm":123710,"priceUSD":74.09,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":-1.2,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"below","pe":15.83,"peg":3.32,"dividendYieldPct":5.99,"debtToEbitda":1.56,"interestCoverage":13.27,"netCashPerShareUSD":-13.3,"shareCountChange5yPct":-1,"institutionalOwnershipPct":64.9,"categoryHint":"slow grower"},"f":[1,2,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A 6% dividend and a 76% operating margin.","risk":"Cigarette volumes keep falling and revenue is flat to down."},{"t":"KDP","n":"Keurig Dr Pepper","px":34.46,"d":{"sector":"Consumer","subIndustry":"Beverages","marketCapUSDm":46890,"priceUSD":34.46,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":7,"epsCAGR5y":0.5,"roe":5.1,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"above","pe":34.82,"peg":1.51,"dividendYieldPct":2.67,"debtToEbitda":6.63,"interestCoverage":3.68,"netCashPerShareUSD":-23.5,"shareCountChange5yPct":0.09,"categoryHint":"stalwart"},"f":[3,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Revenue is up sharply to $20 billion as it merges with JDE Peet\u2019s; about 14x expected earnings.","risk":"Debt rose to 6.6x yearly cash earnings and profit per share fell to $0.99 over 12 months."},{"t":"JNJ","n":"Johnson & Johnson","px":253.79,"d":{"sector":"Healthcare","subIndustry":"Pharma and medical devices","marketCapUSDm":611610,"priceUSD":253.79,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":4.6,"epsCAGR5y":9,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":38.54,"peg":3.1,"dividendYieldPct":2.11,"debtToEbitda":1.43,"interestCoverage":23.7,"netCashPerShareUSD":-11.7,"shareCountChange5yPct":0.79,"institutionalOwnershipPct":76.3,"categoryHint":"stalwart"},"f":[3,4,5,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A fortress balance sheet and a 2.1% dividend.","risk":"At 38x trailing earnings (23x expected), it is priced for stability, not growth."},{"t":"MRK","n":"Merck","px":143.63,"d":{"sector":"Healthcare","subIndustry":"Pharmaceuticals","marketCapUSDm":354360,"priceUSD":143.63,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":7.5,"epsCAGR5y":9.1,"roe":6.96,"marginVsPeers":"above","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":114.66,"peg":3.24,"dividendYieldPct":2.37,"debtToEbitda":1.84,"interestCoverage":13.47,"netCashPerShareUSD":-18.9,"shareCountChange5yPct":-1.92,"institutionalOwnershipPct":81.3,"categoryHint":"stalwart"},"f":[3,4,4,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A strong drug pipeline, but one-time charges cut profit per share to $1.27 over 12 months from $7.28 last year.","risk":"Key drug patents expire later this decade."},{"t":"BMY","n":"Bristol-Myers Squibb","px":58.67,"d":{"sector":"Healthcare","subIndustry":"Pharmaceuticals","marketCapUSDm":119850,"priceUSD":58.67,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":1,"epsCAGR5y":2.6,"roe":46.6,"marginVsPeers":"above","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":13.15,"dividendYieldPct":4.3,"debtToEbitda":2.34,"interestCoverage":9.07,"netCashPerShareUSD":-16.5,"shareCountChange5yPct":0.47,"institutionalOwnershipPct":83,"categoryHint":"slow grower"},"f":[2,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Cheap at about 13x earnings (about 10x expected) with a 4.3% dividend.","risk":"Core drugs lose patents and expected profit growth is slightly negative."},{"t":"GILD","n":"Gilead Sciences","px":153.08,"d":{"sector":"Healthcare","subIndustry":"Biotech","marketCapUSDm":189820,"priceUSD":153.08,"avgDailyDollarVolumeUSDm":800,"profitable":false,"revenueCAGR5y":1.9,"epsCAGR5y":8.3,"roe":-20.68,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","peg":2.53,"dividendYieldPct":2.14,"debtToEbitda":1.78,"interestCoverage":11.86,"netCashPerShareUSD":-17.2,"shareCountChange5yPct":-1.39,"institutionalOwnershipPct":91,"categoryHint":"stalwart"},"f":[3,4,4,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Profit per share was $6.78 last year, with a 2.1% dividend and moderate debt.","risk":"A big one-time charge turned the last 12 months into a loss (-$2.61 per share)."},{"t":"CVS","n":"CVS Health","px":92.68,"d":{"sector":"Healthcare","subIndustry":"Health insurance and pharmacy","marketCapUSDm":118530,"priceUSD":92.68,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":8.3,"epsCAGR5y":-30.7,"roe":6.21,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"above","pe":24.28,"peg":0.97,"dividendYieldPct":2.87,"debtToEbitda":3.87,"interestCoverage":3.92,"netCashPerShareUSD":-48.7,"shareCountChange5yPct":1.19,"institutionalOwnershipPct":90.4,"categoryHint":"turnaround"},"f":[2,2,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A healthcare giant at about 24x earnings (11x expected).","risk":"Insurance costs are rising and profit per share is down from $6.02 to $1.39 over four years."},{"t":"MDT","n":"Medtronic","px":92.77,"d":{"sector":"Healthcare","subIndustry":"Medical devices","marketCapUSDm":113560,"priceUSD":92.77,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":3.5,"epsCAGR5y":0,"roe":10.65,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":22.85,"peg":3.14,"dividendYieldPct":3.1,"debtToEbitda":2.63,"interestCoverage":10.41,"netCashPerShareUSD":-15.7,"shareCountChange5yPct":0,"institutionalOwnershipPct":91.1,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":40.7,"twoQuartersSlowing":false},"f":[3,4,4,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A quality medical-device maker with a 3.1% dividend.","risk":"Profit per share is flat at $3.73 over four years, and 23x earnings is not cheap for that."},{"t":"ABBV","n":"AbbVie","px":282.68,"d":{"sector":"Healthcare","subIndustry":"Pharmaceuticals","marketCapUSDm":499530,"priceUSD":282.68,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":2.1,"epsCAGR5y":-22.2,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"above","pe":79.86,"peg":1.41,"dividendYieldPct":2.45,"debtToEbitda":2.28,"interestCoverage":7.85,"netCashPerShareUSD":-36.3,"shareCountChange5yPct":0.03,"institutionalOwnershipPct":76.6,"categoryHint":"stalwart"},"f":[3,4,4,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A big dividend payer (2.45%) with fast-growing newer drugs.","risk":"About 80x trailing and 19x expected earnings, and profit per share is down from $6.45 to $2.36 over four years."},{"t":"INTC","n":"Intel","px":92.03,"d":{"sector":"Technology","subIndustry":"Chips","marketCapUSDm":483570,"priceUSD":92.03,"avgDailyDollarVolumeUSDm":800,"profitable":false,"revenueCAGR5y":-9.6,"roe":-10.72,"marginVsPeers":"below","marginTrend":"rising","revenueGrowthVsIndustry":"below","peg":0.78,"debtToEbitda":2.96,"interestCoverage":3.88,"netCashPerShareUSD":-3.92,"shareCountChange5yPct":13.28,"institutionalOwnershipPct":67.9,"categoryHint":"turnaround"},"f":[3,3,2,2],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":-2},"energy":{"score":0},"ai":{"score":1}},"ai":"The stock is up 149% in a year on its comeback story.","risk":"It lost money over the last 12 months (-$2.30 per share), share count rose 13%, and at 54x expected earnings the recovery is already priced in."},{"t":"MCHP","n":"Microchip Technology","px":74.43,"d":{"sector":"Technology","subIndustry":"Chips","marketCapUSDm":40420,"priceUSD":74.43,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":-8.8,"roe":7.19,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":109.7,"peg":0.41,"dividendYieldPct":2.45,"debtToEbitda":3.44,"interestCoverage":3.91,"netCashPerShareUSD":-9.45,"shareCountChange5yPct":1.88,"categoryHint":"cyclical"},"f":[4,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":0}},"ai":"A cyclical chipmaker on the recovery track: profit per share $0.68 over 12 months vs $0.22 last fiscal year.","risk":"At 110x trailing earnings much of the recovery is priced in, and debt is 3.4x yearly cash earnings."},{"t":"GLW","n":"Corning","px":132.74,"d":{"sector":"Technology","subIndustry":"Glass and fiber","marketCapUSDm":114340,"priceUSD":132.74,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":2.6,"epsCAGR5y":9.3,"roe":16.81,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":61.23,"peg":1.1,"dividendYieldPct":0.84,"debtToEbitda":2.18,"interestCoverage":7.42,"netCashPerShareUSD":-7.99,"shareCountChange5yPct":0.81,"institutionalOwnershipPct":74.5,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":18.5,"twoQuartersSlowing":false},"f":[4,5,4,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":2}},"ai":"Glass and fiber supplier to AI data centers; revenue and profit per share are growing, up 57% in a year.","risk":"At 61x trailing earnings (35x expected), the price assumes strong growth continues."},{"t":"ANET","n":"Arista Networks","px":182.95,"d":{"sector":"Technology","subIndustry":"Networking","marketCapUSDm":230740,"priceUSD":182.95,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":32.2,"epsCAGR5y":42.9,"roe":31.48,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":56.01,"peg":1.52,"netCashPerShareUSD":10.59,"shareCountChange5yPct":-0.26,"institutionalOwnershipPct":72.9,"categoryHint":"fast grower","latestQtrEpsGrowthYoY":35.7,"twoQuartersSlowing":false},"f":[5,5,5,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":2}},"ai":"AI networking leader: revenue tripled in four years, 43% operating margin, and net cash.","risk":"At 56x trailing (38x expected) earnings, and a few giant cloud customers drive much of its sales."},{"t":"HPQ","n":"HP Inc.","px":30.24,"d":{"sector":"Technology","subIndustry":"PCs and printers","marketCapUSDm":27270,"priceUSD":30.24,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":-3.4,"epsCAGR5y":-16.1,"marginVsPeers":"below","marginTrend":"stable","revenueGrowthVsIndustry":"below","pe":11.43,"peg":2.75,"dividendYieldPct":3.97,"debtToEbitda":2.07,"interestCoverage":9.78,"netCashPerShareUSD":-6.84,"shareCountChange5yPct":-2.89,"institutionalOwnershipPct":95,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":-11.3,"twoQuartersSlowing":false},"f":[2,2,3,3],"ex":{"tariffs":{"score":-2},"rates":{"score":-1},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":-1}},"ai":"Cheap at about 11x earnings with a 4% dividend.","risk":"PCs and printers are low-growth and profit per share fell from $5.36 to $2.65 over four years."},{"t":"ORCL","n":"Oracle","px":129.59,"d":{"sector":"Technology","subIndustry":"Software and cloud","marketCapUSDm":392850,"priceUSD":129.59,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":12.2,"epsCAGR5y":24.7,"roe":41.19,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"above","pe":20.32,"peg":0.5,"dividendYieldPct":1.54,"debtToEbitda":4.48,"interestCoverage":4.82,"netCashPerShareUSD":-43.6,"shareCountChange5yPct":1.95,"institutionalOwnershipPct":43.1,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":54,"twoQuartersSlowing":false},"f":[4,4,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":1}},"ai":"An AI-cloud build-out with a 41% return on equity and a PEG of about 0.5 on analyst growth.","risk":"Debt-funded spending (net debt $132 billion) and the stock is down 56% in a year."},{"t":"ADBE","n":"Adobe","px":247.09,"d":{"sector":"Technology","subIndustry":"Software","marketCapUSDm":96170,"priceUSD":247.09,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":10.8,"epsCAGR5y":13.6,"roe":61.9,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"above","pe":13.79,"peg":0.66,"debtToEbitda":0.68,"interestCoverage":36.3,"netCashPerShareUSD":-2.95,"shareCountChange5yPct":-6.22,"institutionalOwnershipPct":87.4,"categoryHint":"stalwart","latestQtrEpsGrowthYoY":10.5,"twoQuartersSlowing":false},"f":[3,4,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":-1}},"ai":"A 36% operating margin, about 14x earnings (9x expected), and shares retired about 6% a year.","risk":"AI image and video tools threaten its core products, and the stock is down 26% in a year."},{"t":"UPS","n":"United Parcel Service","px":97.46,"d":{"sector":"Industrials","subIndustry":"Delivery","marketCapUSDm":82920,"priceUSD":97.46,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":-2.3,"epsCAGR5y":-18.2,"roe":29.6,"marginVsPeers":"below","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":18.12,"peg":1.7,"dividendYieldPct":6.73,"debtToEbitda":1.94,"interestCoverage":7.56,"netCashPerShareUSD":-28.2,"shareCountChange5yPct":-0.12,"institutionalOwnershipPct":63.8,"categoryHint":"cyclical","latestQtrEpsGrowthYoY":-53,"twoQuartersSlowing":true},"f":[2,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":-1},"ai":{"score":0}},"ai":"A 6.7% dividend and a 30% return on equity.","risk":"Revenue and profit are both falling: profit per share is down from $14.68 to $6.56 in four years."},{"t":"UNP","n":"Union Pacific","px":287.01,"d":{"sector":"Industrials","subIndustry":"Railroad","marketCapUSDm":170510,"priceUSD":287.01,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":3,"epsCAGR5y":4.8,"roe":39.7,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":23.24,"peg":2.41,"dividendYieldPct":1.98,"debtToEbitda":2.36,"interestCoverage":8.07,"netCashPerShareUSD":-48.9,"shareCountChange5yPct":-1.5,"institutionalOwnershipPct":90.6,"categoryHint":"cyclical","latestQtrEpsGrowthYoY":6.7,"twoQuartersSlowing":false},"f":[3,3,4,3],"ex":{"tariffs":{"score":-1},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A railroad with a 41% operating margin and a 40% return on equity.","risk":"Revenue grows only about 3% a year, 23x earnings, and freight is sensitive to tariffs."},{"t":"XOM","n":"Exxon Mobil","px":178.28,"d":{"sector":"Energy","subIndustry":"Oil and gas","marketCapUSDm":733070,"priceUSD":178.28,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":4,"epsCAGR5y":5.6,"roe":12.58,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":22.99,"peg":1.33,"dividendYieldPct":2.31,"debtToEbitda":0.59,"interestCoverage":52,"netCashPerShareUSD":-7.73,"shareCountChange5yPct":-3.89,"institutionalOwnershipPct":66.8,"categoryHint":"cyclical","latestQtrEpsGrowthYoY":112,"twoQuartersSlowing":false},"f":[2,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":1},"ai":{"score":0}},"ai":"A giant with almost no debt and a 2.3% dividend, up 59% in a year.","risk":"Profit follows oil prices and is below its 2022 peak."},{"t":"CVX","n":"Chevron","px":224.37,"d":{"sector":"Energy","subIndustry":"Oil and gas","marketCapUSDm":440120,"priceUSD":224.37,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":4.5,"epsCAGR5y":-5,"roe":12.23,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":21.55,"peg":0.65,"dividendYieldPct":3.17,"debtToEbitda":0.73,"interestCoverage":18.93,"netCashPerShareUSD":-14.57,"institutionalOwnershipPct":71.1,"categoryHint":"cyclical"},"f":[2,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":1},"ai":{"score":0}},"ai":"A solid dividend (3.2%) and low debt.","risk":"Profit follows oil prices, and the share count rose about 12% after a big acquisition."},{"t":"KMI","n":"Kinder Morgan","px":33.39,"d":{"sector":"Energy","subIndustry":"Natural-gas pipelines","marketCapUSDm":74350,"priceUSD":33.39,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":0.5,"epsCAGR5y":15.1,"roe":10.99,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":21.54,"peg":2.35,"dividendYieldPct":3.56,"debtToEbitda":4.12,"interestCoverage":2.98,"netCashPerShareUSD":-14.5,"shareCountChange5yPct":0.14,"institutionalOwnershipPct":70.4,"categoryHint":"stalwart"},"f":[2,2,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":1},"ai":{"score":0}},"ai":"Natural-gas pipelines with a 3.6% dividend and a 29% operating margin.","risk":"Debt-heavy (4.1x yearly cash earnings) with thin interest coverage (3x)."},{"t":"TMUS","n":"T-Mobile US","px":156.09,"d":{"sector":"Communication","subIndustry":"Telecom","marketCapUSDm":167430,"priceUSD":156.09,"avgDailyDollarVolumeUSDm":800,"profitable":true,"revenueCAGR5y":2.5,"epsCAGR5y":41.7,"roe":17.99,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":16.36,"peg":0.71,"dividendYieldPct":3,"debtToEbitda":3.01,"interestCoverage":5.06,"netCashPerShareUSD":-109.9,"shareCountChange5yPct":-3.93,"institutionalOwnershipPct":47.3,"categoryHint":"fast grower","latestQtrEpsGrowthYoY":5.3,"twoQuartersSlowing":false},"f":[4,3,4,4],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Strong growth: profit per share from $2.41 to $9.72 in four years, about 12x expected earnings and a 3% dividend.","risk":"Net debt of about $118 billion and a very competitive wireless market."},{"t":"NOK","n":"Nokia","px":9.08,"d":{"sector":"Technology","subIndustry":"Telecom and optical networking equipment","marketCapUSDm":52590,"priceUSD":9.08,"avgDailyDollarVolumeUSDm":200,"profitable":true,"revenueCAGR5y":-2.7,"epsCAGR5y":-21.5,"roe":3.45,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"below","pe":64.67,"dividendYieldPct":1.2,"debtToEbitda":1.19,"interestCoverage":8.36,"netCashPerShareUSD":0.36,"shareCountChange5yPct":2.76,"institutionalOwnershipPct":53.3,"categoryHint":"stalwart","isADR":true},"f":[3,4,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":1}},"ai":"AI data-center networking tailwind (it owns Infinera\u2019s optical business) and the stock is up 60% in a year, but profit is tiny: a 3.5% return on equity.","risk":"At 65x trailing and 22x expected earnings the price is high, and four-year sales and profit per share are lower. It is a Finnish company reporting in euros."},{"t":"ITUB","n":"Ita\u00fa Unibanco","px":9.43,"d":{"sector":"Financials","subIndustry":"Bank (Brazil)","marketCapUSDm":108780,"priceUSD":9.43,"avgDailyDollarVolumeUSDm":250,"profitable":true,"revenueCAGR5y":5.5,"epsCAGR5y":13.7,"roe":21.48,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"above","pe":12.04,"dividendYieldPct":1.48,"shareCountChange5yPct":-0.34,"institutionalOwnershipPct":29.7,"categoryHint":"stalwart","isADR":true,"latestQtrEpsGrowthYoY":8.1,"twoQuartersSlowing":false},"f":[4,4,5,4],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Brazil\u2019s most profitable bank: a 21% return on equity, profit per share up from 2.40 to 4.20 reais since 2021, and about 12x earnings.","risk":"It earns in Brazilian reais (currency risk) in a high-interest-rate, politically sensitive economy, and is a foreign company reporting differently from US banks."},{"t":"LYG","n":"Lloyds Banking Group","px":5.41,"d":{"sector":"Financials","subIndustry":"Bank (UK)","marketCapUSDm":78470,"priceUSD":5.41,"avgDailyDollarVolumeUSDm":100,"profitable":true,"revenueCAGR5y":2.1,"epsCAGR5y":0.0,"roe":11.34,"marginVsPeers":"above","marginTrend":"stable","revenueGrowthVsIndustry":"below","pe":12.79,"dividendYieldPct":3.89,"shareCountChange5yPct":-3.04,"institutionalOwnershipPct":85.7,"categoryHint":"slow grower","isADR":true},"f":[3,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"The UK\u2019s biggest retail bank: a 3.9% dividend at 12.8x earnings (9.5x expected), shares retired about 3% a year, and analysts expect about 26% yearly profit growth.","risk":"UK economy risk and costs from car-finance mis-selling claims; a foreign company with pound currency risk."},{"t":"BBD","n":"Banco Bradesco","px":4.11,"d":{"sector":"Financials","subIndustry":"Bank (Brazil)","marketCapUSDm":40450,"priceUSD":4.11,"avgDailyDollarVolumeUSDm":100,"profitable":true,"revenueCAGR5y":-1.0,"epsCAGR5y":0.8,"roe":13.76,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":8.68,"dividendYieldPct":5.03,"shareCountChange5yPct":-0.18,"institutionalOwnershipPct":35.9,"categoryHint":"slow grower","isADR":true,"latestQtrEpsGrowthYoY":19.3,"twoQuartersSlowing":false},"f":[3,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Brazil\u2019s second-largest private bank at under 9x earnings (7x expected) with a 5% dividend; profit is recovering, up 19% last quarter.","risk":"Profit per share is flat over four years, with Brazilian credit and currency risks, and it is a foreign company."},{"t":"BTG","n":"B2Gold","px":5.22,"d":{"sector":"Materials","subIndustry":"Gold mining","marketCapUSDm":6930,"priceUSD":5.22,"avgDailyDollarVolumeUSDm":80,"profitable":true,"revenueCAGR5y":14.8,"roe":22.63,"marginVsPeers":"above","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":8.58,"dividendYieldPct":1.52,"debtToEbitda":0.22,"interestCoverage":25.6,"netCashPerShareUSD":-0.13,"shareCountChange5yPct":13.32,"institutionalOwnershipPct":68.5,"categoryHint":"cyclical","isADR":true},"f":[3,3,4,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":-1},"ai":{"score":0}},"ai":"A gold miner with a 41% operating margin, a 23% return on equity and almost no debt, at about 9x earnings; profit per share doubled over 12 months ($0.56 vs $0.28).","risk":"Profit depends on the gold price and on mine operations (including Mali), and the share count rose 13% in a year. It is a Canadian company."},{"t":"WU","n":"Western Union","px":6.11,"d":{"sector":"Financials","subIndustry":"Money transfer","marketCapUSDm":1920,"priceUSD":6.11,"avgDailyDollarVolumeUSDm":60,"profitable":true,"revenueCAGR5y":-5.5,"epsCAGR5y":-6.3,"roe":43.97,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":4.96,"dividendYieldPct":15.24,"debtToEbitda":2.99,"interestCoverage":4.37,"netCashPerShareUSD":-5.71,"shareCountChange5yPct":-5.64,"institutionalOwnershipPct":98.7,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":-35,"twoQuartersSlowing":false},"f":[2,3,3,3],"ex":{"tariffs":{"score":-1},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":-1}},"ai":"A 15% dividend at about 5x earnings, and it retires about 5.6% of its shares a year; the market expects the business to keep shrinking.","risk":"Sales are down about 5% a year, digital rivals take share, and a 15% yield is unlikely to last if profit keeps falling."},{"t":"AGNC","n":"AGNC Investment","px":8.44,"d":{"sector":"Financials","subIndustry":"Mortgage REIT","marketCapUSDm":10010,"priceUSD":8.44,"avgDailyDollarVolumeUSDm":120,"profitable":true,"epsCAGR5y":4.8,"roe":19.8,"marginVsPeers":"inline","marginTrend":"stable","revenueGrowthVsIndustry":"inline","pe":4.48,"dividendYieldPct":17.06,"shareCountChange5yPct":22.41,"institutionalOwnershipPct":43.1,"categoryHint":"slow grower"},"f":[2,2,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-2},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A mortgage REIT paying a 17% dividend at about 4.5x earnings.","risk":"Its profit swings with interest rates and mortgage spreads, and its share count is up 22% in a year."},{"t":"RITM","n":"Rithm Capital","px":8.44,"d":{"sector":"Financials","subIndustry":"Mortgage servicer and asset manager","marketCapUSDm":4890,"priceUSD":8.44,"avgDailyDollarVolumeUSDm":80,"profitable":true,"revenueCAGR5y":-3.0,"epsCAGR5y":-8.9,"roe":5.59,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":14.55,"dividendYieldPct":11.43,"shareCountChange5yPct":7.63,"institutionalOwnershipPct":61.4,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":-92,"twoQuartersSlowing":false},"f":[3,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A mortgage servicer and asset manager yielding 11.4%; analysts expect profit to rebound (about 4x expected earnings).","risk":"Profit per share is down to $0.60 over 12 months from $1.67 two years ago, and shares are up 7.6% in a year."},{"t":"CFFN","n":"Capitol Federal Financial","px":8.17,"d":{"sector":"Financials","subIndustry":"Savings bank","marketCapUSDm":1090,"priceUSD":8.17,"avgDailyDollarVolumeUSDm":5,"profitable":true,"revenueCAGR5y":-1.3,"epsCAGR5y":-1.8,"roe":8.01,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"inline","pe":13.66,"dividendYieldPct":3.83,"shareCountChange5yPct":-2.02,"institutionalOwnershipPct":78.9,"categoryHint":"slow grower","latestQtrEpsGrowthYoY":35.7,"twoQuartersSlowing":false},"f":[2,2,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":-1},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"A small Kansas savings bank with a 3.8% dividend, up 38% in a year; profit per share recovered to $0.65 over 12 months from $0.29 in 2024.","risk":"A tiny, slow-growing bank (about $1 billion in value) with flat revenue over four years."},{"t":"CRCT","n":"Cricut","px":6.54,"d":{"sector":"Consumer","subIndustry":"Crafting machines and supplies","marketCapUSDm":1400,"priceUSD":6.54,"avgDailyDollarVolumeUSDm":10,"profitable":true,"revenueCAGR5y":-14.2,"epsCAGR5y":-14.0,"roe":25.9,"marginVsPeers":"inline","marginTrend":"falling","revenueGrowthVsIndustry":"below","pe":16.82,"dividendYieldPct":2.99,"debtToEbitda":0.11,"interestCoverage":158,"netCashPerShareUSD":1.32,"shareCountChange5yPct":0.79,"institutionalOwnershipPct":72.2,"categoryHint":"turnaround","latestQtrEpsGrowthYoY":72.7,"twoQuartersSlowing":false},"f":[2,3,3,3],"ex":{"tariffs":{"score":-2},"rates":{"score":0},"geopolitics":{"score":0},"energy":{"score":0},"ai":{"score":0}},"ai":"Debt-free with net cash and a 26% return on equity, but sales have shrunk from $1.3 billion to about $0.7 billion since 2021.","risk":"Tariffs on China-made products, shrinking sales, and analysts expect profit to fall about 11% a year."},{"t":"GRAB","n":"Grab Holdings","px":2.87,"d":{"sector":"Technology","subIndustry":"Ride-hailing and delivery (Southeast Asia)","marketCapUSDm":11710,"priceUSD":2.87,"avgDailyDollarVolumeUSDm":150,"profitable":true,"revenueCAGR5y":49.5,"roe":7.74,"marginVsPeers":"inline","marginTrend":"rising","revenueGrowthVsIndustry":"above","pe":25.09,"debtToEbitda":5.93,"interestCoverage":1.42,"netCashPerShareUSD":1.1,"shareCountChange5yPct":4.45,"institutionalOwnershipPct":51.0,"categoryHint":"fast grower","isADR":true},"f":[4,3,3,3],"ex":{"tariffs":{"score":0},"rates":{"score":0},"geopolitics":{"score":-1},"energy":{"score":0},"ai":{"score":0}},"ai":"Southeast Asia\u2019s leading ride-hailing and delivery app: revenue up fivefold in four years and just turning profitable, with net cash.","risk":"Profit is thin ($0.11 per share), interest coverage is only 1.4x, and the stock is down 49% in a year. It is a foreign (Singapore) company."}];
+</script>
+<script id="picks">
+/* ---------- Picks: researched pool scored by the same engine ---------- */
+const FLABELS=['Room to keep growing','Keeps inventing and improving','Quality of management','Treats people and shareholders well'];
+const picksNow=()=>new Date();
+function scorePool(){
+  return PICK_POOL.map(p=>{
+    const d=Object.assign({ticker:p.t,company:p.n,dataAsOf:'2026-Q2',confidence:0.8},p.d);
+    const q={fisher:p.f.map((s,i)=>({label:FLABELS[i],score:s})),exposures:p.ex,confidence:0.7};
+    const r=score(d,q,{now:picksNow()});
+    return {p,d,q,r};
+  });
+}
+function choosePicks(rows,lo,hi,n=3){
+  const inR=rows.filter(x=>x.p.px>=lo&&x.p.px<=hi);
+  const ok=inR.filter(x=>x.r.verdict==='Buy'||x.r.verdict==='Watch');
+  ok.sort((a,b)=>((b.r.verdict==='Buy')-(a.r.verdict==='Buy'))||(b.r.adjusted-a.r.adjusted));
+  const picks=[],sec={};
+  for(const x of ok){const s=x.d.sector;if((sec[s]||0)>=2)continue;sec[s]=(sec[s]||0)+1;picks.push(x);if(picks.length===n)break;}
+  return {inR,picks};
+}
+const dol=v=>v>=1000?(v/1000).toFixed(v>=100000?0:1)+' billion':v.toFixed(0)+' million';
+const mcap=m=>m>=1e6?'$'+(m/1e6).toFixed(2)+' trillion':m>=1000?'$'+(m/1000).toFixed(m>=100000?0:1)+' billion':'$'+m.toFixed(0)+' million';
+function lynchSays(x){
+  const {d,r}=x, c=r.cat.name, ey=d.pe>0?100/d.pe:null;
+  let a;
+  if(c==='slow grower')a=`I file this as a slow, steady grower, so I want to be paid while I wait: ${d.dividendYieldPct!=null?d.dividendYieldPct+'% dividend, ':''}${ey!=null?`and a profit yield of ${ey.toFixed(1)}% against ${r.tenY}% on the 10-year Treasury`:'and a fair price'}.`;
+  else if(c==='fast grower')a=`I file this as a fast grower. The key question is price versus growth: the PEG (price-to-earnings divided by growth) is ${d.peg!=null?d.peg:'unclear'}, and below 1 is what I look for.`;
+  else if(c==='cyclical')a=`This is a cyclical: its profits swing with the business cycle, so I would want to buy near the bottom, not after a rebound. Its earnings have dropped sharply from the peak.`;
+  else if(c==='turnaround')a=`This is a turnaround. I have seen most of them disappoint, so I would keep it small and wait for proof.`;
+  else a=`I file this as a steady, larger company. I like paying a fair price for it: ${d.pe!=null?d.pe.toFixed(1)+' times earnings':'price unclear'}${d.peg!=null?`, PEG ${d.peg}`:''}.`;
+  if(r.pillars[2].included){const ratio=r.pillars[2].score/r.pillars[2].w;a+=ratio>=0.7?' The price looks reasonable for what you get.':ratio>=0.4?' The price is fair but not a bargain.':' The price looks high for the growth.';}
+  return a;
+}
+function fisherSays(x){
+  const {p,d,r}=x, fa=p.f.reduce((a,b)=>a+b,0)/p.f.length;
+  let a=`Would I be glad to own this for ten years? I score it ${fa.toFixed(1)} out of 5 on growth room, innovation, management and treatment of people (my read of public information, not an inside check).`;
+  if(d.roe!=null)a+=` It earns ${d.roe.toFixed(0)}% a year on shareholders’ money`;
+  if(d.marginVsPeers)a+=`${d.roe!=null?',':' It has'} profit margins ${d.marginVsPeers==='inline'?'in line with':d.marginVsPeers+' those of'} its peers`;
+  return a+'.';
+}
+function oneilSays(x){
+  const {d}=x; let a='';
+  if(d.latestQtrEpsGrowthYoY!=null){const g=d.latestQtrEpsGrowthYoY;a+=`The latest quarter’s profit per share was ${g>=0?'up':'down'} ${Math.abs(g).toFixed(0)}% from a year ago; I want 25% or more for a leader. ${g>=25?'This clears that bar.':g>=0?'It grows, but not like a market leader.':'That is the wrong direction.'}`;}
+  else a+='I could not confirm the latest quarter’s profit growth, which is the first thing I check.';
+  if(d.epsCAGR5y!=null)a+=` Over the past four years profit per share changed about ${d.epsCAGR5y>=0?'+':''}${d.epsCAGR5y.toFixed(0)}% a year.`;
+  return a+' I also check the price chart for new highs on heavy volume; I could not verify that live, so check it before buying.';
+}
+function pillarBars(r){
+  return r.pillars.map(P=>`<div class="pbar"><span class="pl">${esc(P.name)}</span><span class="bar"><span style="width:${P.included?Math.round(P.score/P.w*100):0}%"></span></span><span class="pval">${P.included?P.score.toFixed(0)+'/'+P.w:'n/a'}</span></div>`).join('');
+}
+function worldChips(r){
+  const m=r.mrows.filter(m=>m.exp!=null&&m.exp!==0);
+  if(!m.length)return '<span class="muted">Little direct effect from today’s tariffs, rates or tensions.</span>';
+  return m.map(m=>`<span class="flag ${m.exp>0?'info':''}">${m.exp>0?'Helped by':'Hurt by'}: ${esc(m.label.toLowerCase())}</span>`).join('');
+}
+
+/* ---------- Entry and exit plan: rough fair-value method, shown to every user the same way ---------- */
+const RANGE={'slow grower':[10,16],'stalwart':[13,22],'fast grower':[16,28],'cyclical':[10,14],'turnaround':[8,12],'asset play':[8,12]};
+function planFor(x){
+  const {p,d,r}=x, f=FWD_PE[p.t]||d.pe; if(!f||f<=0)return null;
+  let eps=p.px/f; if(d.pe>0)eps=Math.min(eps,1.4*(p.px/d.pe));
+  let [lo,hi]=RANGE[r.cat.name]||[12,20]; if(p.f.reduce((a,b)=>a+b,0)/p.f.length>=3.75){lo+=2;hi+=3;} if(r.fin)hi=Math.min(hi,16);
+  const g=(d.pe>0&&d.peg>0)?d.pe/d.peg:null;
+  const fpe=g==null?lo:Math.max(lo,Math.min(hi,g));
+  const fair=Math.min(eps*fpe,p.px*1.5);
+  const R={fpe,eps,fair,buy:fair*0.85,great:fair*0.70,trim:fair*1.25,sell:fair*1.5,review:fair*0.85*0.75};
+  R.state=p.px<=R.great?'great':p.px<=R.buy?'buy':p.px<=fair*1.1?'near':p.px<=R.trim?'rich':'high';
+  return R;
+}
+const px$=v=>'$'+(v>=100?v.toFixed(0):v>=30?v.toFixed(1):v.toFixed(2));
+function planHtml(x){
+  const R=planFor(x); if(!R)return '';
+  const st={great:['gr-hi','Today’s price is in the great-entry zone.'],buy:['gr-hi','Today’s price is inside the buy zone.'],near:['gr-mid',`Today’s price is a little above the buy zone. Wait for a dip to ${px$(R.buy)} or below, or buy a small first slice now.`],rich:['gr-lo',`Today’s price is above fair value. Wait for ${px$(R.buy)} or below.`],high:['gr-lo',`Today’s price is well above our fair-value estimate. Wait for ${px$(R.buy)} or below.`]}[R.state];
+  return `<div class="plan"><div class="plan-h"><b>Entry and exit plan</b><span class="grade ${st[0]}">${st[1]}</span></div>
+  <div class="plan-grid">
+   <div class="pg"><span class="pk">Buy zone</span><span class="pvv">up to ${px$(R.buy)}</span><span class="muted">great below ${px$(R.great)}</span></div>
+   <div class="pg"><span class="pk">Fair value (our estimate)</span><span class="pvv">${px$(R.fair)}</span><span class="muted">${R.fpe.toFixed(0)}x expected earnings of ${px$(R.eps)}</span></div>
+   <div class="pg"><span class="pk">Sell range</span><span class="pvv">${px$(R.trim)} to ${px$(R.sell)}</span><span class="muted">trim from the low end, sell most near the high end</span></div>
+   <div class="pg"><span class="pk">Re-check the story if</span><span class="pvv">below ${px$(R.review)}</span><span class="muted">or profits fall two quarters in a row</span></div>
+  </div>
+  <p class="muted" style="font-size:13.5px;margin:0">How we got these: expected next-12-month profit per share times a fair multiple for this type of company (${esc(x.r.cat.name)}, capped by its growth rate), capped at 50% above today’s price because markets are usually partly right, then 15% below that for the buy zone and 25% to 50% above it for selling. It is a rough guide for a multi-year hold, not a prediction. Buy in slices rather than all at once, and re-check each company’s latest results first.</p></div>`;
+}
+function pickCard(x,i){
+  const {p,d,r}=x, v=r.verdict;
+  const meaning={Buy:'Passes all three legends’ tests. A candidate to hold for years.',Watch:'Good in places, but something holds it back. Keep it on your list.',Avoid:'Fails too many tests right now.'}[v]||'';
+  const why=v==='Buy'?'':r.why.filter(w=>!/^The overall score/.test(w)).slice(0,2).join(' ');
+  return `<article class="pickcard"><div class="ph"><div class="rank">#${i+1}</div><div class="phead"><h3>${esc(p.n)} <span class="mono muted">${esc(p.t)}</span></h3><div class="meta">$${p.px.toFixed(2)} at the ${PICKS_ASOF} close · worth ${mcap(d.marketCapUSDm)} · ${esc(d.subIndustry)}</div></div><div class="pv"><div class="vword v-${v}" style="font-size:30px">${v}</div><div class="mono muted" style="font-size:13px">score ${r.adjusted.toFixed(0)} · ${Math.round(r.confidence*100)}% sure</div></div></div>
+  <p class="vmean">${meaning}${why?` <span class="muted">${esc(why)}</span>`:''}</p>
+  <div class="voices">
+   <div class="voice"><b>Lynch’s lens</b><p>${esc(lynchSays(x))}</p></div>
+   <div class="voice"><b>Fisher’s lens</b><p>${esc(fisherSays(x))}</p></div>
+   <div class="voice"><b>O’Neil’s lens</b><p>${esc(oneilSays(x))}</p></div>
+   <div class="voice ai"><b>Claude, AI analyst, on today’s market</b><p>${esc(p.ai)}</p><p><span class="muted">What could go wrong:</span> ${esc(p.risk)}</p><div class="flags">${worldChips(r)}</div></div>
+  </div>
+  ${planHtml(x)}
+  <details class="pil"><summary class="muted">How it scored on the six questions</summary><div class="pbars">${pillarBars(r)}</div></details></article>`;
+}
+function renderPicks(){
+  const lo=+($('#pmin').value||0), hiRaw=$('#pmax').value, hi=hiRaw===''?1e9:+hiRaw;
+  const rows=PICK_ROWS, {inR,picks}=choosePicks(rows,lo,hi);
+  const out=$('#picksout'), pool=PICK_ROWS.length;
+  let h='';
+  const old=(Date.now()-new Date(PICKS_ASOF_ISO+'T00:00:00').getTime())/864e5;
+  if(old>45)h+=`<div class="note warn">These prices and numbers are from ${PICKS_ASOF}, about ${Math.round(old)} days ago. Treat them as a starting list and re-check each company.</div>`;
+  if(!inR.length)h+=`<div class="note">None of the ${pool} companies we researched trade in that price range. Try a wider range.</div>`;
+  else{
+    h+=`<div class="note"><b>${picks.length} of ${inR.length}</b> researched companies in this price range made the cut. ${picks.length<3?'Fewer than three passed, and we would rather show fewer than pad the list.':''}</div>`;
+    h+=picks.map(pickCard).join('');
+    const rest=inR.filter(x=>!picks.includes(x)).sort((a,b)=>(b.r.adjusted||0)-(a.r.adjusted||0));
+    if(rest.length)h+=`<details class="pil"><summary class="muted">Also looked at in this range (${rest.length})</summary><ul class="alsolist">${rest.map(x=>`<li><span class="pname">${esc(x.p.n)} <span class="mono muted">${esc(x.p.t)}</span></span><span class="mono muted">$${x.p.px.toFixed(2)}</span><span class="v-${x.r.verdict==='Not scored'?'Not':x.r.verdict}">${x.r.verdict}${x.r.adjusted!=null?' · '+x.r.adjusted.toFixed(0):''}</span></li>`).join('')}</ul></details>`;
+  }
+  out.innerHTML=h;
+}
+function setRange(lo,hi){ $('#pmin').value=lo; $('#pmax').value=hi; document.querySelectorAll('.chip[data-max]').forEach(c=>c.classList.toggle('on',c.dataset.max===String(hi)&&String(lo)==='0')); renderPicks(); }
+let PICK_ROWS=[];
+function initPicks(){
+  try{PICK_ROWS=scorePool();}catch(e){$('#picksout').innerHTML='<div class="note warn">Could not score the picks list.</div>';return;}
+  document.querySelectorAll('.chip[data-max]').forEach(c=>c.addEventListener('click',()=>setRange(0,c.dataset.max)));
+  $('#pform').addEventListener('submit',e=>{e.preventDefault();document.querySelectorAll('.chip[data-max]').forEach(c=>c.classList.remove('on'));renderPicks();});
+  setRange(0,100);
+}
+function showTab(t){
+  for(const k of ['check','picks','lows','gems']){$('#tab-'+k).hidden=(k!==t);const b=$('#tb-'+k);b.setAttribute('aria-selected',k===t);b.classList.toggle('on',k===t);}
+  try{if(location.hash!=='#'+t)history.replaceState(null,'','#'+t);}catch(e){}
+}
+$('#tb-check').addEventListener('click',()=>showTab('check'));
+$('#tb-picks').addEventListener('click',()=>showTab('picks'));
+$('#tb-lows').addEventListener('click',()=>showTab('lows'));
+$('#tb-gems').addEventListener('click',()=>showTab('gems'));
+document.querySelectorAll('.asof').forEach(e=>e.textContent=PICKS_ASOF);
+initPicks();
+if(location.hash==='#picks')showTab('picks');
+if(location.hash==='#lows')showTab('lows');
+if(location.hash==='#gems')showTab('gems');
+
+</script>
+<script id="lowsdata">
+const LOWS_ASOF="October 26, 2026 (a few quotes are from Oct 21–25)";
+const LOWS_TOP=["FSLR","TMUS","EVR"];
+const LOWS=[{"t":"FSLR","n":"First Solar","px":168.55,"lo":165.9,"hi":320.95,"q":21,"w":16,"v":17,"c":12,"b":12,"call":"Buy the dip, in thirds","buy":[160,180],"trim":[235,260],"earn":"Oct 29 (after close)","why":"Solar and clean-energy stocks sold off on tariff and policy uncertainty (Section 232 polysilicon ruling, foreign-entity rules). The business itself is growing: sales +24% over the last 12 months, profit +39%. Slower booking visibility and lower price targets drove a new 52-week low in September, and it set another one today.","said":"On the July call management kept full-year guidance, reported a 45 GW order backlog worth about $13.6 billion running through 2030, and said US capacity is nearly sold out through 2028. Gross margin was about 57%, helped by roughly $89 million of tariff benefit that management says is still being refined. GLJ Research cut its target to $250 but kept Buy at about nine times earnings; Roth called a new Commerce rule against stockpiling cheap imported solar material a near-term positive.","risk":"Part of the margin gain depends on tariff recoveries that could change. A South Carolina plant phase slipped to mid-2027, and policy rulings could go either way. Booking visibility has slowed, and higher financing costs make large utility-scale projects harder to lock in.","rethink":"below $150, or if Oct 29 results cut guidance or the polysilicon ruling goes against it","reasons":["About 10x trailing and 8x expected earnings for a company growing profit near 40%.","Orders already booked through 2030 make profit more visible than most stocks at lows.","Analysts average a target near $274, about 59% above the price."],"score":78},{"t":"TMUS","n":"T-Mobile US","px":145.79,"lo":143.92,"hi":224.75,"q":21,"w":15,"v":16,"c":12,"b":9,"call":"Buy the dip, in thirds","buy":[128,148],"trim":[180,195],"earn":"Oct 28","why":"Fear of SpaceX’s Starlink Mobile becoming a fourth carrier (spectrum purchase on Oct 9, then reports of cell-site talks on Oct 23, which sent it down 7.7%). No customer damage is visible yet; it is a future-competition scare.","said":"Revenue is up 9.7% over 12 months. Raymond James upgraded to Buy and called the SpaceX worry overblown; Bernstein cut its target to $180 but stayed neutral. After the stock was down about 14.5% in the SpaceX move, a telecom expert told Benzinga the selloff is overdone. Reports say SpaceX is seeking at least 80,000 US cell sites for a fourth carrier (\"only a plan for now\"); AT&T fell 8% the same day. Management had guided to about 250,000 net postpaid additions for Q3.","risk":"If SpaceX becomes a real rival the premium valuation could shrink for years. Heavy debt, and a weak customer-additions number on Oct 28 would hurt.","rethink":"below $125, or if phone customer additions on Oct 28 come in well under guidance","reasons":["Sits right at its 52-week low after a fear-driven drop, not a results-driven one.","About 11.7x expected earnings plus a 3.2% dividend while you wait.","Earnings on Oct 28 is the first hard evidence on whether the scare is showing up in customers."],"score":73},{"t":"EVR","n":"Evercore","px":257.78,"lo":245.47,"hi":388.71,"q":20,"w":15,"v":15,"c":11,"b":12,"call":"Buy in thirds, last two after Oct 28","buy":[225,255],"trim":[300,330],"earn":"Oct 28","why":"Investment banks are priced for fewer deals: high interest rates and the Iran-war overhang. Analysts have been trimming Q3 estimates (Zacks ranks it a Strong Sell on revisions), and Q2 profit missed by about 11 cents.","said":"Sales are up 45% and profit per share up 61% over 12 months, so the business is not shrinking; the worry is the next few quarters. Two new co-presidents start Jan 1, 2027.","risk":"A Q3 miss is plausible (the most accurate estimate sits about 6% under consensus). Revenue swings with deal activity and rates.","rethink":"below $225, or if Oct 28 shows advisory revenue falling and management sounds cautious","reasons":["About 14.7x expected earnings for a firm whose profit grew 61%.","Already down about 35% from its high, so a lot of bad news is in the price.","Pays a 1.4% dividend and a deal rebound would help profit quickly."],"score":73},{"t":"HWM","n":"Howmet Aerospace","px":190.46,"lo":183.52,"hi":310.0,"q":24,"w":16,"v":8,"c":11,"b":11,"call":"Staged buy, wait for Oct 29","buy":[170,190],"trim":[250,270],"earn":"Oct 29","why":"Elon Musk said SpaceX will make turbine blades in-house, and GE bought a rival casting supplier. Investors fear new competition in a market Howmet leads. Heavy put buying shows traders are betting on more downside.","said":"Management says it holds over 50% of the global market for gas-turbine blades; gas-turbine sales rose 38% in Q2, and it has finished talks with all seven major turbine customers. Capital spending will top $500 million this year. Morgan Stanley named it a top aerospace pick; RBC and TD Cowen trimmed targets but stayed positive.","risk":"Still about 31x expected earnings, so any growth stumble hurts.","rethink":"below $165, or if Oct 29 shows turbine orders slowing","reasons":["Best business quality on this list: sales +18%, profit +36%.","Down about 40% from its high on a threat that is years from hurting revenue.","Strong demand for turbine capacity across the industry."],"score":70},{"t":"NFLX","n":"Netflix","px":63.68,"lo":62.87,"hi":116.73,"q":22,"w":14,"v":14,"c":8,"b":12,"call":"Staged buy, small first","buy":[58,66],"trim":[85,95],"earn":"Next report January (date not confirmed)","why":"Q3 beat estimates (EPS $0.87 vs $0.82), but fourth-quarter revenue guidance ($13.4B) came in under expectations, the 2026 ad revenue forecast was cut to about $2.7B from $3B on a slower ad rollout, and third-party data shows US monthly users down 10%. It is cutting about 1,000 jobs (about 6% of staff).","said":"Full-year 2026 revenue of $51.1B stayed in the prior range. The stock is roughly 45% below its high after falling 5% on the report.","risk":"If engagement and ad growth keep slipping, the premium for the world’s biggest streamer could shrink further. No earnings catalyst until January.","rethink":"below $55, or if viewing and ad growth keep slowing","reasons":["About 19x earnings for the global streaming leader, down about 45% from its high.","Profit beat even as the stock fell: the worry is growth speed, not whether it makes money.","Layoffs and cost cuts can lift margins if revenue holds."],"score":70},{"t":"CMG","n":"Chipotle","px":28.2,"lo":27.31,"hi":42.19,"q":21,"w":12,"v":11,"c":11,"b":13,"call":"Small, wait for Oct 28 print","buy":[24,28],"trim":[36,40],"earn":"Oct 28 (after close)","why":"Slowing restaurant traffic and weak October sales (TD Cowen downgraded to Hold). Price increases at about 20% of stores risk hurting visits. Takeover talk faded when Starbucks said it was not buying. It hit its lowest level since January 2023 and is technically oversold.","said":"Profit per share is down 4.5% over 12 months. Many firms cut targets before earnings; the company is running a $6 meal promotion.","risk":"If sales keep slipping the stock’s premium multiple (about 22x expected earnings) can compress further.","rethink":"below $24, or if same-store sales are negative and guidance is cut","reasons":["Debt-free brand with a long growth record, down about 35% from its high.","Analysts’ average target is about $43.55, roughly 58% above the price.","A better-than-feared Oct 28 print could squeeze the stock higher."],"score":68},{"t":"RBA","n":"RB Global","px":84.19,"lo":78.05,"hi":119.33,"q":19,"w":18,"v":12,"c":8,"b":10,"call":"Accumulate slowly","buy":[76,86],"trim":[105,115],"earn":"Nov 9","why":"Customers became more deliberate, fuel costs rose, and acquired real-estate auctions lowered the take rate (what it keeps per sale). It is about 8% above its 52-week low, not right on it.","said":"Management raised its 2026 volume outlook to 9% to 11% growth, doubled the buyback to $1 billion, and calls 2026 a “volume-led growth year.”","risk":"Margins could slip if fuel and costs stay high, and the catalyst (Nov 9) is further out.","rethink":"below $76, or if volume growth drops under 9%","reasons":["Raised guidance and a bigger buyback while the stock fell.","Profit per share +14% over 12 months."],"score":67},{"t":"APP","n":"AppLovin","px":260.58,"lo":255.46,"hi":738.01,"q":22,"w":10,"v":16,"c":8,"b":9,"call":"Small, only after Nov 4","buy":[240,275],"trim":[380,420],"earn":"Nov 4","why":"A rare Q2 revenue miss against its own guidance (stock fell about 20% that day), then class-action lawsuits, a San Diego County suit, and a wave of price-target cuts. Down about 65% from its high.","said":"Management asked for patience while it builds its e-commerce and consumer-ads business and says Q3 should re-accelerate. Revenue +61% and profit +85% over 12 months.","risk":"Legal overhang, trust in guidance, and ad-tech competition. Q3 is close to a coin flip.","rethink":"below $240, or if Nov 4 misses guidance again","reasons":["14.4x expected earnings for a company growing profit 85%."],"score":65},{"t":"SE","n":"Sea Limited","px":74.63,"lo":71.5,"hi":164.03,"q":21,"w":10,"v":15,"c":9,"b":9,"call":"Small, speculative","buy":[66,76],"trim":[100,110],"earn":"Nov 10","why":"Down more than 50% from its high on margin worries (DBS downgraded to Hold) and concern about credit losses in its lending arm. It closed Friday within 1% of its 52-week low.","said":"Shopee-driven revenue beat estimates in Q2. Sales +43% and profit per share +33% over 12 months. The lending unit could be spun out in an IPO. It traded as low as $71.50 today, a new 52-week low (no clean closing price was available).","risk":"Lending losses, competition in Southeast Asian e-commerce, and a foreign company with less transparent reporting.","rethink":"below $66, or if Nov 10 shows rising loan losses","reasons":["17.5x expected earnings for 40%+ growth."],"score":64},{"t":"LKQ","n":"LKQ Corporation","px":17.5,"lo":17.21,"hi":37.13,"q":14,"w":14,"v":15,"c":11,"b":8,"call":"Speculative, wait for Oct 29 call","buy":[15,18],"trim":[24,27],"earn":"Oct 29","why":"On Oct 22 LKQ removed its CEO, withdrew 2026 guidance, and said Q3 adjusted profit would be $0.47–$0.53 per share versus $0.84 a year ago. Europe is the problem (ERP software trouble in Germany plus weak UK and Benelux). The stock fell 22% in a day.","said":"North America was in line; Europe sales fell 9.8% and its profit margin dropped to about 4–5% from 10%. A new CEO (Salvatore Abbate) starts Dec 15, consultants Alvarez & Marsal are advising on Europe, and the board is reviewing strategic alternatives.","risk":"The 6.9% dividend could be cut, leadership is in flux, and the Europe fix could take quarters.","rethink":"any dividend cut or further guidance withdrawal","reasons":["6.6x expected earnings and a strategic review that could unlock value."],"score":62},{"t":"CCJ","n":"Cameco","px":78.6,"lo":76.92,"hi":135.24,"q":18,"w":13,"v":7,"c":10,"b":12,"call":"Accumulate slowly, small","buy":[70,80],"trim":[105,115],"earn":"Oct 30","why":"Weaker Q2 and profit down 34% over 12 months; Truist and Barclays trimmed targets. The stock is still expensive at about 50x expected earnings.","said":"Long-term uranium demand is supported by US and Korean nuclear investment plans and data-center power deals.","risk":"Westinghouse funding uncertainty and a valuation that leaves little room for error.","rethink":"below $70 or a second weak quarter","reasons":[],"score":60},{"t":"ESAB","n":"ESAB Corporation","px":66.98,"lo":62.74,"hi":137.42,"q":17,"w":11,"v":14,"c":8,"b":9,"call":"Wait for Nov 4","buy":[58,66],"trim":[90,100],"earn":"Nov 4","why":"Profit per share is down 34% over 12 months and a South Carolina court found ESAB entities responsible in an asbestos case. Down about 51% from its high. (Price is from Oct 22.)","said":"Sales +9.7%. Stifel, Oppenheimer and JPMorgan cut targets but remain positive.","risk":"Asbestos liability and weak industrial demand.","rethink":"any large asbestos charge","reasons":[],"score":59},{"t":"LVS","n":"Las Vegas Sands","px":36.47,"lo":35.03,"hi":70.45,"q":17,"w":12,"v":14,"c":6,"b":9,"call":"Speculative, small","buy":[33,37],"trim":[47,50],"earn":"Reported Oct 21","why":"Q3 missed: revenue $3.22B vs $3.33B expected and adjusted EPS $0.54 vs $0.68, on soft Macau and Singapore trends. Down about 48% from its high.","said":"It bought back $950M of stock in the quarter and pays a 3.2% dividend. Susquehanna cut its target to $47 (still Positive); Morgan Stanley is at Hold with a $49 target, citing Singapore and Macau headwinds.","risk":"Macau and Singapore demand, and no near-term catalyst. Debt level not re-checked this session.","rethink":"below $32, or another revenue miss","reasons":[],"score":58},{"t":"MGM","n":"MGM Resorts","px":28.06,"lo":27.69,"hi":51.59,"q":14,"w":11,"v":11,"c":10,"b":6,"call":"Wait for Oct 28","buy":[24,28],"trim":[36,40],"earn":"Oct 28","why":"A rash of target cuts after a takeover idea was withdrawn. Profit per share is down 13% over 12 months and is expected to fall further.","said":"BetMGM revenue rose 7%; CBRE upgraded to Buy while Wells Fargo and Morgan Stanley sit near $29.","risk":"Heavy debt and lease obligations; earnings expected to keep falling.","rethink":"guidance cut","reasons":[],"score":52},{"t":"NRG","n":"NRG Energy","px":92.5,"lo":90.8,"hi":189.96,"q":16,"w":12,"v":11,"c":7,"b":5,"call":"Wait","buy":[82,92],"trim":[130,145],"earn":"Next report early November (date not confirmed)","why":"Down about 51% from its high after Q2 profit missed ($1.49 vs about $1.67 expected), partly on higher interest costs. It carries heavy debt.","said":"Management kept 2026 adjusted EPS guidance of $7.90–$9.90, and is building a 1.2 GW Texas project expected to add about $500M a year of EBITDA from late 2029. HSBC started coverage at Buy with a $179 target; Morgan Stanley cut its target to $144.","risk":"Leverage and a dividend that exceeded earnings last quarter; a long wait for the new project.","rethink":"below $80, or if guidance is cut","reasons":[],"score":51},{"t":"WHR","n":"Whirlpool","px":28.1,"lo":26.08,"hi":94.82,"q":10,"w":12,"v":13,"c":9,"b":5,"call":"Don’t buy before the print","buy":[20,26],"trim":[36,42],"earn":"Tonight after close (call Oct 27)","why":"In May it cut guidance and suspended its dividend; the CFO said appliance demand is the weakest since 2008 (Iran-war hit to consumers, weak housing). Down 70% from its high.","said":"“Accelerates cost and pricing actions to restore margins.” Longbow downgraded to Neutral; several banks cut targets. Results are due tonight, so wait for them.","risk":"Debt, tariffs and housing. The 6.4% yield shown on some sites is stale because the dividend is suspended.","rethink":"another guidance cut","reasons":[],"score":49},{"t":"MOS","n":"Mosaic","px":17.84,"lo":16.99,"hi":32.25,"q":12,"w":11,"v":9,"c":8,"b":9,"call":"Wait","buy":[14,17],"trim":[24,26],"earn":"Nov 3","why":"Losing money (about -$2 per share over 12 months), RBC downgraded, and a Trump post about a Belarus potash deal hit the shares.","said":"Quarterly dividend of $0.22 declared; an operations executive is retiring.","risk":"Potash prices and trade policy.","rethink":"dividend cut","reasons":[],"score":49},{"t":"HUBG","n":"Hub Group","px":25.7,"lo":24.98,"hi":53.26,"q":10,"w":6,"v":13,"c":6,"b":9,"call":"Don’t buy","buy":[],"trim":[],"earn":"Nov 6 (est.)","why":"Accounting restatement, delayed filings, a Nasdaq delisting determination, and a CEO and board shake-up. Sales are down 5.8%.","said":"Baird upgraded to Outperform; Wells Fargo, JPMorgan, Barclays and Raymond James cut targets.","risk":"Restatements are a red flag until resolved.","rethink":"","reasons":[],"score":44},{"t":"XRAY","n":"Dentsply Sirona","px":9.41,"lo":8.32,"hi":14.76,"q":9,"w":10,"v":12,"c":7,"b":5,"call":"Don’t buy","buy":[],"trim":[],"earn":"Nov 5","why":"Losses (-$2.73 per share over 12 months), flat sales, and a string of target cuts.","said":"Hold consensus; Mizuho, Leerink and Piper Sandler all trimmed targets.","risk":"Turnaround not yet visible.","rethink":"","reasons":[],"score":43},{"t":"CBRS","n":"Cerebras Systems","px":108.51,"lo":106.13,"hi":386.34,"q":13,"w":8,"v":5,"c":6,"b":8,"call":"Don’t buy","buy":[],"trim":[],"earn":"Nov 12","why":"May IPO that has fallen hard on Nvidia competition and a lockup expiration. Sales +112% but it is losing money (-$6.33 per share).","said":"Sam Altman called it a close partner; ARK Invest bought in mid-October.","risk":"Unprofitable, richly priced, and recently listed.","rethink":"","reasons":[],"score":40},{"t":"ALK","n":"Alaska Air Group","px":34.4,"lo":32.33,"hi":60.63,"q":10,"w":11,"v":7,"c":5,"b":6,"call":"Don’t buy","buy":[],"trim":[],"earn":"Q3 reported Oct 21","why":"Q3 loss of $147 million on fuel costs and a bigger-than-expected Q4 loss forecast; Citi has a Sell with a $33 target.","said":"US airlines are choosing higher fares over fuller planes as fuel squeezes profit.","risk":"Fuel prices and debt.","rethink":"","reasons":[],"score":39},{"t":"FMC","n":"FMC Corporation","px":4.76,"lo":4.75,"hi":30.95,"q":8,"w":8,"v":12,"c":7,"b":3,"call":"Don’t buy","buy":[],"trim":[],"earn":"Oct 29","why":"Cut Q3 guidance on weak demand and too much inventory in the sales channel, with a $2.8 billion annual loss from write-downs. Down 84% from its high. It hit a new low today; it amended its credit agreement tied to a planned India sale, and a further dividend cut is feared.","said":"Citi, Jefferies, Seaport and Barclays all cut or downgraded; law firms are investigating.","risk":"Debt and inventory concerns remain; the 6.3% dividend looks unsafe.","rethink":"","reasons":[],"score":38}];
+</script>
+<script id="lows">
+(function(){
+const $=s=>document.querySelector(s);
+const money=n=>'$'+(n>=100?n.toFixed(0):n.toFixed(2));
+const callCls=d=>d.score>=64?'g':d.score>=50?'y':'r';
+function bars(d){const P=[['Quality',d.q,25],['Why it fell',d.w,25],['Valuation',d.v,20],['Catalyst',d.c,15],['Balance sheet',d.b,15]];
+ return '<div class="lbars">'+P.map(p=>'<div class="lbar">'+p[0]+' <b class="mono">'+p[1]+'/'+p[2]+'</b><i><b style="width:'+Math.round(p[1]/p[2]*100)+'%"></b></i></div>').join('')+'</div>';}
+function zone(d){
+ if(!d.buy.length)return '<div class="muted">No buy zone: we would not buy this one now.</div>';
+ const st=d.px<d.buy[0]?'Price is below our buy zone: cheaper, but ask why before buying more.':d.px<=d.buy[1]?'Price is inside our buy zone.':'Price is above our buy zone: wait for a pullback.';
+ return '<div class="plan"><div class="plan-grid"><div><div class="muted">BUY ZONE</div><b class="mono">'+money(d.buy[0])+' to '+money(d.buy[1])+'</b></div><div><div class="muted">SELL / TRIM RANGE</div><b class="mono">'+money(d.trim[0])+' to '+money(d.trim[1])+'</b></div></div><div>'+st+'</div><div class="muted">Re-check the story if: '+d.rethink+'.</div></div>';}
+function head(d,rank){
+ const off=((d.px/d.lo-1)*100).toFixed(1), fromHi=((1-d.px/d.hi)*100).toFixed(0);
+ return '<div class="lhead"><div><h3>'+(rank?'#'+rank+' ':'')+d.n+' <span class="mono muted">'+d.t+'</span></h3><div class="muted">'+money(d.px)+' · '+off+'% above its 52-week low · '+fromHi+'% below its high · earnings '+d.earn+'</div></div><div style="text-align:right"><div class="lscore">'+d.score+'<span class="muted" style="font-size:14px">/100</span></div><span class="lcall '+callCls(d)+'">'+d.call+'</span></div></div>';}
+function topCard(d,rank){
+ return '<div class="lcard top">'+head(d,rank)+bars(d)+'<div><b>Why it fell.</b> '+d.why+'</div><div><b>What management and analysts said.</b> '+d.said+'</div><div><b>Reasons to buy</b><ul>'+d.reasons.map(r=>'<li>'+r+'</li>').join('')+'</ul></div><div><b>What could go wrong.</b> '+d.risk+'</div>'+zone(d)+'</div>';}
+function rowCard(d,rank){
+ return '<div class="lcard">'+head(d,rank)+bars(d)+'<details><summary>Why it fell and what to watch</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px"><div><b>Why it fell.</b> '+d.why+'</div><div><b>What was said.</b> '+d.said+'</div><div><b>Risk.</b> '+d.risk+'</div>'+zone(d)+'</div></details></div>';}
+const rank=Object.fromEntries(LOWS.map((d,i)=>[d.t,i+1]));
+$('#lowsdate').textContent=LOWS_ASOF;
+$('#lowsrefresh').addEventListener('click',async()=>{const b=$('#lowsrefresh'),msg='Refresh the 52-week lows tab with today’s prices, news and scores, and republish.';
+ try{await navigator.clipboard.writeText(msg);b.textContent='Copied. Paste it in chat';}catch(e){b.textContent='Select and copy: '+msg;}
+ setTimeout(()=>{b.textContent='Copy refresh request';},4000);});
+$('#lowsasof').textContent=LOWS_ASOF;
+$('#lowstop').innerHTML=LOWS_TOP.map(t=>{const d=LOWS.find(x=>x.t===t);return topCard(d,rank[t]);}).join('');
+$('#lowsall').innerHTML='<div class="lows-wrap">'+LOWS.map((d,i)=>rowCard(d,i+1)).join('')+'</div>';
+$('#lowssrc').innerHTML='Data from <a href="https://stockanalysis.com" target="_blank" rel="noopener">StockAnalysis.com</a> (prices, ranges, news headlines), company filings (<a href="https://www.sec.gov/Archives/edgar/data/0001065696/000106569626000047/exhibit991-q326earningsand.htm" target="_blank" rel="noopener">LKQ 8-K</a>), and earnings-call summaries from <a href="https://www.marketbeat.com/instant-alerts/first-solar-q2-earnings-call-highlights-2026-07-30/" target="_blank" rel="noopener">MarketBeat</a>, <a href="https://www.tikr.com/blog/howmet-aerospace-hwm-stock-drops-elon-musk-turbine-production" target="_blank" rel="noopener">TIKR</a>, <a href="https://nasdaq.com/articles/why-t-mobile-stock-just-crashed" target="_blank" rel="noopener">Nasdaq</a>, <a href="https://finviz.com/news/402791/bear-of-the-day-evercore-evr" target="_blank" rel="noopener">Finviz/Zacks</a> and <a href="https://qz.com/whirlpool-earnings-miss-guidance-cut-dividend-suspended-iran-war-050726" target="_blank" rel="noopener">Quartz</a>. ESAB’s price is from Oct 22.';
+})();
+</script>
+<script id="gemsdata">
+const GEMS_MONTH="October 2026";const GEMS_ASOF="October 24, 2026";const GEMS_BAR=80;
+const GEMS=[{"t":"GRAB","n":"Grab Holdings","px":2.87,"asof":"Oct 19–20","g":24,"q":12,"v":9,"c":10,"b":11,"up":"Southeast Asia’s leading ride-hailing and delivery app. Q2 sales rose 22% to $997M, margin is widening, guidance was raised and a new $750M buyback follows a finished $500M one. Fintech is expected to turn profitable in the second half.","hold":"Thin profit, interest coverage of only about 1.4x, and loan-loss charges rising as the loan book grew 197%. A foreign company, down about 49% in a year.","score":66,"buy":[2.4,2.95],"trim":[4.2,5.0],"rethink":"below $2.20, or loan losses keep rising faster than the loan book"},{"t":"BCRX","n":"BioCryst Pharmaceuticals","px":7.94,"asof":"Oct 20","g":24,"q":11,"v":11,"c":9,"b":9,"up":"Sales up 69% to $941M over 12 months on its rare-disease drug ORLADEYO (up to $645M expected in 2026). Analysts’ average target is about $20.","hold":"Still a net loss (-$385M over 12 months), RBC downgraded in September, and it is winding down internal drug discovery. Balance-sheet debt not re-checked.","score":64,"buy":[6.8,8.2],"trim":[11.5,13.0],"rethink":"below $6.20, or if Nov 2 results cut the ORLADEYO outlook"},{"t":"AMPX","n":"Amprius Technologies","px":8.18,"asof":"Oct 23","g":28,"q":8,"v":3,"c":12,"b":11,"up":"Battery maker with sales up 144% to $109M, a $75M US government grant, and a new 500 Wh/kg cell. Eleven analysts rate it Strong Buy.","hold":"Losing money (-$38M), a very high price for its profit (forward P/E near 369), and down about 66% from its high.","score":62,"buy":[7.0,8.5],"trim":[13.0,15.0],"rethink":"below $7.00, or if sales growth stalls"},{"t":"UROY","n":"Uranium Royalty","px":3.43,"asof":"Oct 23","g":20,"q":11,"v":11,"c":7,"b":12,"up":"Royalty and streaming model: sales up 503% to $214M, profit $55M, about 9x earnings.","hold":"Registered resale of 226.7M shares by large holders is a supply overhang; the sales jump looks lumpy.","score":61,"buy":[3.0,3.5],"trim":[4.2,4.6],"rethink":"below $2.56, or if the 226.7M-share resale floods the market"},{"t":"API","n":"Agora","px":4.45,"asof":"Oct 23","g":14,"q":13,"v":11,"c":8,"b":14,"up":"Seven straight profitable quarters, Q2 sales +18%, customer retention 104%, and the CEO plans to buy up to $20M of stock. Trades below book value.","hold":"A $373M micro-cap with only two analysts; gross margin slipped and growth is modest.","score":60,"buy":[3.9,4.5],"trim":[5.8,6.8],"rethink":"below $3.60, or if sales growth drops under 10%"},{"t":"GROY","n":"Gold Royalty","px":2.85,"asof":"Oct 23","g":22,"q":10,"v":6,"c":9,"b":10,"up":"Sales up 82% to $22.6M and eight analysts rate it Buy (average target $5.03).","hold":"Barely profitable, about 38x expected earnings, and the profit depends on the gold price.","score":57,"buy":[2.5,2.9],"trim":[4.0,5.0],"rethink":"below $2.45, or if gold falls sharply"},{"t":"SB","n":"Safe Bulkers","px":7.92,"asof":"Oct 22","g":14,"q":12,"v":12,"c":8,"b":11,"up":"Profit per share up 78%, about 10x earnings, 3.8% dividend, Q2 beat estimates.","hold":"Dry-bulk shipping is cyclical, so profits swing; only two analysts cover it.","score":57,"buy":[7.0,8.0],"trim":[9.3,9.5],"rethink":"below $6.80, or if shipping rates drop"},{"t":"NAT","n":"Nordic American Tankers","px":7.54,"asof":"Oct 22","g":12,"q":10,"v":11,"c":6,"b":12,"up":"Tanker rates lifted profit sharply; 6.2% yield.","hold":"Cyclical; analysts’ average target ($7.50) is below the price and the stock is up about 126% from its low.","score":51},{"t":"RNW","n":"ReNew Energy Global","px":6.88,"asof":"Oct 23","g":12,"q":13,"v":9,"c":4,"b":10,"up":"Sales up 22%, profit up 25%.","hold":"A take-private offer of $6.75 is on the table, so upside is capped near the price.","score":48},{"t":"POET","n":"POET Technologies","px":5.46,"asof":"Oct 23","g":18,"q":4,"v":2,"c":9,"b":12,"up":"Optical chips for AI; Q2 sales up 112% from a tiny base; $796M in cash.","hold":"Revenue is only $1.7M against a $76M loss, and shareholder lawsuits are pending.","score":45},{"t":"TE","n":"T1 Energy","px":2.29,"asof":"Oct 23","g":20,"q":3,"v":6,"c":6,"b":4,"up":"Sales up 427% to about $1B.","hold":"Net loss near $400M and down about 82% from its high.","score":39},{"t":"VRRM","n":"Verra Mobility","px":3.09,"asof":"Oct 23","g":10,"q":8,"v":9,"c":3,"b":4,"up":"Looks cheap at about 5.5x expected earnings.","hold":"Down 88% from its high, guidance cut, a Q2 loss, and a new CEO and CFO.","score":34},{"t":"EGAN","n":"eGain","px":5.68,"asof":"Oct 23","g":5,"q":9,"v":4,"c":3,"b":12,"up":"Long profitable history and a Gartner leader ranking.","hold":"Sales growth about 3%, profit down 72%, and a Roth downgrade on a weaker outlook.","score":33}];
+</script>
+<script id="gems">
+(function(){
+const $=s=>document.querySelector(s);
+const P=[['Growth',30],['Quality',20],['Valuation',15],['Catalyst',15],['Balance sheet',20]];
+function bars(d){const v=[d.g,d.q,d.v,d.c,d.b];return '<div class="lbars">'+P.map((p,i)=>'<div class="lbar">'+p[0]+' <b class="mono">'+v[i]+'/'+p[1]+'</b><i><b style="width:'+Math.round(v[i]/p[1]*100)+'%"></b></i></div>').join('')+'</div>';}
+const money=n=>'$'+n.toFixed(2);
+function plan(d){if(!d.buy)return '';const st=d.px<d.buy[0]?'Price is below our buy zone: cheaper, but ask why before buying.':d.px<=d.buy[1]?'Price is inside our buy zone.':'Price is above our buy zone: wait for a pullback.';
+ return '<div class="plan"><div class="plan-grid"><div><div class="muted">BUY ZONE</div><b class="mono">'+money(d.buy[0])+' to '+money(d.buy[1])+'</b></div><div><div class="muted">SELL / TRIM TARGET</div><b class="mono">'+money(d.trim[0])+' to '+money(d.trim[1])+'</b></div></div><div>'+st+'</div><div class="muted">Re-check the story if: '+d.rethink+'. Buy in slices; keep it a small part of your money.</div></div>';}
+function card(d,i,pick,label){
+ return '<div class="lcard'+(pick?' top':'')+'"><div class="lhead"><div><h3>'+(label||(i+1)+'.')+' '+d.n+' <span class="mono muted">'+d.t+'</span></h3><div class="muted">$'+d.px.toFixed(2)+' ('+d.asof+')</div></div><div style="text-align:right"><div class="lscore">'+d.score+'<span class="muted" style="font-size:14px">/100</span></div><span class="lcall '+(d.score>=GEMS_BAR?'g':'y')+'">'+(d.score>=GEMS_BAR?'Clears the bar':(GEMS_BAR-d.score)+' points short')+'</span></div></div><div class="gbar"><b style="width:'+d.score+'%"></b><span style="left:'+GEMS_BAR+'%"></span></div>'+bars(d)+'<div><b>The case.</b> '+d.up+'</div><div><b>What holds it back.</b> '+d.hold+'</div>'+plan(d)+'</div>';}
+$('#gemsmonth').textContent=GEMS_MONTH;$('#gemsdate').textContent=GEMS_ASOF;
+const passed=GEMS.filter(d=>d.score>=GEMS_BAR).slice(0,3);
+const win=passed.length?passed:GEMS.slice(0,3);
+$('#gemspicks').innerHTML=(passed.length?'':'<div class="gem-empty" style="margin-bottom:12px"><b>No stock cleared 80 this month.</b> We checked '+GEMS.length+' stocks under $10 and the best scored '+GEMS[0].score+'. So these are the <b>best of a weak field</b>, not 80+ picks: size them small.</div>')+'<div class="lows-wrap">'+win.map((d,i)=>card(d,i,true,'Winner '+(i+1)+':')).join('')+'</div>';
+$('#gemsall').innerHTML=GEMS.slice(win.length).map((d,i)=>card(d,i+win.length,false)).join('');
+$('#gemsrefresh').addEventListener('click',async()=>{const b=$('#gemsrefresh'),msg='Refresh the Hidden gems tab: find the best stocks under $10 this month, score them, and republish.';
+ try{await navigator.clipboard.writeText(msg);b.textContent='Copied. Paste it in chat';}catch(e){b.textContent='Select and copy: '+msg;}
+ setTimeout(()=>{b.textContent='Copy refresh request';},4000);});
+})();
+</script>
+
+
+
