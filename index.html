@@ -265,16 +265,54 @@ h1{font-size:clamp(26px,4.4vw,38px);font-weight:700;letter-spacing:-.02em}
 .lcall.g{background:var(--buy-bg)!important}.lcall.y{background:var(--watch-bg)!important}.lcall.r{background:var(--avoid-bg)!important}
 .vword{font-family:var(--f-display)}
 .foot,.lsrc{font-size:12.5px}
+
+/* ===== Home and accordion ===== */
+.home{display:flex;flex-direction:column;gap:18px}
+.hgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:640px){.hgrid{grid-template-columns:minmax(0,1fr)}}
+.hcard{position:relative;text-align:left;display:flex;flex-direction:column;gap:8px;padding:22px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 92%,#fff 4%),var(--surface));color:inherit;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;min-height:150px}
+.hcard:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 14px 34px -14px rgba(56,189,248,.35)}
+.hcard h2{font-size:21px}
+.hcard p{margin:0;color:var(--muted);font-size:15px}
+.hic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font:600 17px var(--f-mono);background:var(--soft);color:var(--accent)}
+.hstat{font:500 12.5px var(--f-mono);color:var(--buy)}
+.hgo{margin-top:auto;font:600 13px var(--f-body);color:var(--accent)}
+.hcard:hover .hgo{letter-spacing:.02em}
+.is-home .tabs,.is-home .tape{display:none}
+body:not(.is-home) header h1,body:not(.is-home) header .lede{display:none}
+body:not(.is-home) .topbar{margin-bottom:14px}
+.logo{cursor:pointer}
+.logo:hover .brand{color:var(--accent)}
+/* one stock at a time: cards fold up until tapped */
+.lcard,.pickcard{cursor:pointer;scroll-margin-top:70px}
+.lcard:not(.open)>*:not(.lh2):not(.lhead):not(.callrow){display:none}
+.pickcard:not(.open)>*:not(.ph){display:none}
+.lcard::after,.pickcard::after{content:"Tap for details ▾";font:500 11.5px var(--f-mono);color:var(--muted)}
+.lcard.open::after,.pickcard.open::after{content:"Tap to close ▴"}
+.lcard.open,.pickcard.open{cursor:default;border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.lcard.open::after,.pickcard.open::after{cursor:pointer;align-self:flex-start}
+details.more{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:color-mix(in srgb,var(--surface) 80%,transparent)}
+details.more>summary{font-weight:600;color:var(--accent);cursor:pointer}
+details.more>*:not(summary){margin-top:10px}
 </style>
 
 <div class="wrap">
   <header>
     <div class="topbar"><div class="logo"><span class="mark">LV</span><div><div class="brand">Legends Verdict</div><div class="sub">LYNCH · FISHER · O'NEIL · AI READ</div></div></div><span class="pill" id="asofpill"><i></i><span id="asoftxt">Loading data</span></span></div>
     <div class="tape" aria-hidden="true"><div class="tape-in" id="tapein"></div></div>
-    <h1>Type a company. Get one clear answer.</h1>
-    <p class="lede">Three famous investors, Peter Lynch, Philip Fisher and William O'Neil, each have a way of judging a business. This page applies all three, adds an AI check of today's world, and tells you Buy, Watch or Avoid for holding a stock for years.</p>
+    <h1>Pick a tool. Get one clear answer.</h1>
+    <p class="lede">Plain Buy, Watch or Avoid answers, built on the methods of Peter Lynch, Philip Fisher and William O’Neil.</p>
   </header>
 
+  <section id="home" class="home" hidden>
+    <div class="hgrid">
+      <button type="button" class="hcard" data-go="check" id="hc-check"><span class="hic">?</span><h2>Check any stock</h2><p>Type a company and get a clear Buy, Watch or Avoid.</p><span class="hgo">Open →</span></button>
+      <button type="button" class="hcard" data-go="picks"><span class="hic">3</span><h2>Today’s picks</h2><p>Choose a price range and see three picks with entry and sell plans.</p><span class="hgo">Open →</span></button>
+      <button type="button" class="hcard" data-go="lows"><span class="hic">↓</span><h2>52-week lows</h2><p>Good companies that have fallen, scored out of 100.</p><span class="hstat" id="hs-lows"></span><span class="hgo">Open →</span></button>
+      <button type="button" class="hcard" data-go="gems"><span class="hic">$</span><h2>Hidden gems</h2><p>Stocks under $10 with room to grow, checked monthly.</p><span class="hstat" id="hs-gems"></span><span class="hgo">Open →</span></button>
+    </div>
+    <p class="foot">Education, not personal investment advice. Lows data as of <span id="homeasof"></span>.</p>
+  </section>
   <nav class="tabs" role="tablist" aria-label="Choose a tool">
     <button class="tab on" id="tb-check" role="tab" aria-selected="true" type="button">Check any stock</button>
     <button class="tab" id="tb-picks" role="tab" aria-selected="false" type="button">Today’s picks</button>
@@ -975,11 +1013,11 @@ function zone(d){
  return '<div class="plan"><div class="plan-grid"><div><div class="pk">Buy zone</div><b class="pvv">'+money(d.buy[0])+' to '+money(d.buy[1])+'</b></div><div><div class="pk">Sell / trim range</div><b class="pvv">'+money(d.trim[0])+' to '+money(d.trim[1])+'</b></div></div><div>'+st+'</div><div class="muted">Re-check the story if: '+d.rethink+'.</div></div>';}
 function head(d,rank){
  const off=((d.px/d.lo-1)*100).toFixed(1), fromHi=((1-d.px/d.hi)*100).toFixed(0), c=cls(d);
- return '<div class="lh2"><div><h3>'+(rank?'<span class="mono muted" style="font-size:14px">#'+rank+'</span>':'')+d.n+' <span class="tkr">'+d.t+'</span></h3><div class="lmeta"><span><b>'+money(d.px)+'</b></span><span>'+off+'% above low</span><span>'+fromHi+'% below high</span><span>earnings: '+d.earn+'</span></div></div><div class="lright"><button type="button" class="star'+(LV.isW(d.t)?' on':'')+'" data-star="'+d.t+'" aria-label="Add '+d.t+' to watchlist" title="Watchlist">'+(LV.isW(d.t)?'★':'☆')+'</button><div class="ring '+c+'" style="--p:'+d.score+'"><span>'+d.score+'</span></div></div></div><div><span class="lcall '+c+'">'+d.call+'</span></div>';}
+ return '<div class="lh2"><div><h3>'+(rank?'<span class="mono muted" style="font-size:14px">#'+rank+'</span>':'')+d.n+' <span class="tkr">'+d.t+'</span></h3><div class="lmeta"><span><b>'+money(d.px)+'</b></span><span>'+off+'% above low</span><span>'+fromHi+'% below high</span><span>earnings: '+d.earn+'</span></div></div><div class="lright"><button type="button" class="star'+(LV.isW(d.t)?' on':'')+'" data-star="'+d.t+'" aria-label="Add '+d.t+' to watchlist" title="Watchlist">'+(LV.isW(d.t)?'★':'☆')+'</button><div class="ring '+c+'" style="--p:'+d.score+'"><span>'+d.score+'</span></div></div></div><div class="callrow"><span class="lcall '+c+'">'+d.call+'</span></div>';}
 function topCard(d,rank){
  return '<div class="lcard top">'+head(d,rank)+rbar(d)+bars(d)+'<div><b>Why it fell.</b> '+d.why+'</div><div><b>What management and analysts said.</b> '+d.said+'</div><div><b>Reasons to buy</b><ul>'+d.reasons.map(r=>'<li>'+r+'</li>').join('')+'</ul></div><div><b>What could go wrong.</b> '+d.risk+'</div>'+zone(d)+'</div>';}
 function rowCard(d,rank){
- return '<div class="lcard" data-t="'+d.t+'">'+head(d,rank)+rbar(d)+bars(d)+'<details><summary>Why it fell and what to watch</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:10px"><div><b>Why it fell.</b> '+d.why+'</div><div><b>What was said.</b> '+d.said+'</div><div><b>Risk.</b> '+d.risk+'</div>'+zone(d)+'</div></details></div>';}
+ return '<div class="lcard" data-t="'+d.t+'">'+head(d,rank)+rbar(d)+bars(d)+'<div style="display:flex;flex-direction:column;gap:8px"><div><b>Why it fell.</b> '+d.why+'</div><div><b>What was said.</b> '+d.said+'</div><div><b>Risk.</b> '+d.risk+'</div>'+zone(d)+'</div></div>';}
 const rank=Object.fromEntries(LOWS.map((d,i)=>[d.t,i+1]));
 let F='all';
 function stats(){
@@ -1060,15 +1098,38 @@ document.addEventListener('click',e=>{
  if(LV.rerender&&document.querySelector('#lfilters .chip.on[data-f="w"]'))LV.rerender();
  else{const c=document.querySelector('#wcount');if(c)c.textContent='('+LV.count()+')';}
 });
-// website copy (no Claude runtime): hide the Check tab, which needs Claude
-if(!window.claude){
- $('#tb-check').hidden=true;$('#tab-check').hidden=true;
- const h=location.hash;
- if(!['#picks','#lows','#gems'].includes(h))$('#tb-lows').click();
- else $('#tb-'+h.slice(1)).click();
- const lede=document.querySelector('header .lede');
- if(lede)lede.insertAdjacentHTML('beforeend',' Use the tabs below to explore today’s picks, 52-week lows and hidden gems.');
-}
+// home screen, tab folding and one-at-a-time cards
+const panels=()=>document.querySelectorAll('[id^=tab-]');
+function goHome(){document.body.classList.add('is-home');$('#home').hidden=false;panels().forEach(p=>p.hidden=true);try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}window.scrollTo(0,0);}
+function leaveHome(){document.body.classList.remove('is-home');$('#home').hidden=true;}
+const hasClaude=!!window.claude;
+if(!hasClaude){$('#tb-check').hidden=true;$('#tab-check').hidden=true;$('#hc-check').hidden=true;}
+try{
+ $('#hs-lows').textContent=LOWS.length+' stocks · '+LOWS.filter(d=>d.score>=64).length+' worth a look';
+ const pass=GEMS.filter(d=>d.score>=GEMS_BAR).length;
+ $('#hs-gems').textContent=pass?pass+' cleared the '+GEMS_BAR+' bar':'None cleared '+GEMS_BAR+' this month';
+ $('#homeasof').textContent=LOWS_ASOF.split(' (')[0];
+}catch(e){}
+$('#home').addEventListener('click',e=>{const c=e.target.closest('.hcard');if(!c)return;leaveHome();$('#tb-'+c.dataset.go).click();window.scrollTo(0,0);});
+document.querySelector('.tabs').addEventListener('click',()=>leaveHome(),true);
+document.querySelector('.logo').addEventListener('click',goHome);
+// shrink the long notes and intros behind one tap
+document.querySelectorAll('#tab-picks .note,#tab-lows .note.warn,#tab-gems .note.warn').forEach(n=>{if(/Please read/.test(n.textContent)){const w=document.createElement('details');w.className='more';w.innerHTML='<summary>Please read before using</summary>'+n.innerHTML;n.replaceWith(w);}});
+document.querySelectorAll('#tab-picks .lede,#tab-lows .lede,#tab-gems .lede').forEach(p=>{const w=document.createElement('details');w.className='more';w.innerHTML='<summary>How this works</summary><p style="margin:0">'+p.innerHTML+'</p>';p.replaceWith(w);});
+// accordion: one open card at a time
+document.addEventListener('click',e=>{
+ if(e.target.closest('.star,a,button,input,select,summary,.chip,.stat'))return;
+ const c=e.target.closest('.lcard,.pickcard');if(!c)return;
+ if(c.classList.contains('open')&&!e.target.closest('.lh2,.lhead,.ph')&&!(e.clientY>c.getBoundingClientRect().bottom-36))return;
+ const was=c.classList.contains('open');
+ const root=c.closest('[id^=tab-]');
+ root.querySelectorAll('.lcard.open,.pickcard.open').forEach(x=>x.classList.remove('open'));
+ if(!was){c.classList.add('open');setTimeout(()=>c.scrollIntoView({behavior:'smooth',block:'start'}),30);}
+});
+// start
+const h=location.hash.slice(1);
+if(['check','picks','lows','gems'].includes(h)&&(h!=='check'||hasClaude)){leaveHome();$('#tb-'+h).click();}
+else goHome();
 })();
 </script>
 
