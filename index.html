@@ -324,6 +324,7 @@ details.more>*:not(summary){margin-top:10px}
     <input id="q" type="text" placeholder="Company name or ticker, for example Costco" aria-label="Company name or ticker" maxlength="60">
     <button class="btn" id="go" type="submit">Check this stock</button>
   </form>
+  <div class="search" id="codebox" hidden><input id="acode" type="password" placeholder="Access code (website only)" aria-label="Access code" autocomplete="off" maxlength="80"></div>
   <div class="try">Try: <button type="button" class="chip" data-q="Costco">Costco</button><button type="button" class="chip" data-q="Nvidia">Nvidia</button><button type="button" class="chip" data-q="Ford">Ford</button><button type="button" class="chip" data-q="SoFi">SoFi</button><button type="button" class="chip" id="manual" hidden>Fill in numbers myself</button></div>
 
   <div class="note" id="srcnote"><b>Good to know.</b> The numbers come from Claude's memory, not a live stock feed, and it cannot browse the internet. For well-known companies they are usually decent. For newer or smaller companies they can be old or missing, and this page tells you when that happens instead of guessing. Always double-check with the company's latest filings. This is education, not personal investment advice.</div>
@@ -642,10 +643,27 @@ const lc=s=>s.charAt(0).toLowerCase()+s.slice(1);
 /* ---------- state + flow ---------- */
 let S={data:null,qual:null,res:null,ai:'',factors:Object.assign({},DEFAULT_STATE),tenY:TEN_Y,editOpen:false};
 let sampleFn=null,ctls=[],busy=false;
-const sampleP=(async()=>{try{return window.claude?await window.claude.use('sample'):null;}catch(e){return null;}})();
+function webSample(){
+  const call=async(input,opts)=>{
+    let code='';try{code=localStorage.getItem('lv_code')||'';}catch(e){}
+    let r;
+    try{r=await fetch('/api/check',{method:'POST',headers:{'content-type':'application/json','x-access-code':code},body:JSON.stringify({input:typeof input==='string'?input:JSON.stringify(input)}),signal:opts&&opts.signal});}
+    catch(e){if(e&&e.name==='AbortError')throw e;throw {code:'network'};}
+    if(r.status===401)throw {code:'bad_code'};
+    if(r.status===429)throw {code:'rate_limited'};
+    if(r.status===503)throw {code:'not_configured'};
+    if(!r.ok)throw {code:'error'};
+    const j=await r.json();
+    if(opts&&opts.onText)opts.onText({text:j.text});
+    return {text:j.text,truncated:false};
+  };
+  call.json=async(input,opts)=>{const {text}=await call(input,opts);const m=text.match(/\{[\s\S]*\}/);if(!m)throw {code:'parse'};return JSON.parse(m[0]);};
+  return call;
+}
+const sampleP=(async()=>{try{return window.claude?await window.claude.use('sample'):webSample();}catch(e){return null;}})();
 sampleP.then(s=>{sampleFn=s;if(!s)$('#manual').hidden=false;});
 
-const COPY={not_granted:'Claude access was declined for this page, so the check cannot run. You can still fill in the numbers yourself.',sampling_disabled:'Claude is not available for this account.',rate_limited:'Too many requests, or your usage limit was reached. Try again later.',session_expired:'Please sign in again, then retry.',invalid_json:'Claude’s reply could not be read. Please try once more.',cancelled:'Stopped.'};
+const COPY={bad_code:'Wrong or missing access code. Enter it in the box under the search bar.',not_configured:'The website check is not set up yet (the server key is missing).',not_granted:'Claude access was declined for this page, so the check cannot run. You can still fill in the numbers yourself.',sampling_disabled:'Claude is not available for this account.',rate_limited:'Too many requests, or your usage limit was reached. Try again later.',session_expired:'Please sign in again, then retry.',invalid_json:'Claude’s reply could not be read. Please try once more.',cancelled:'Stopped.'};
 const errCopy=e=>COPY[e&&e.code]||'Something went wrong reaching Claude. Please try again.';
 
 function setSteps(list){$('#steps').innerHTML=list.map(([id,t,s])=>`<li data-id="${id}" data-s="${s}"><span class="dot"></span><span>${esc(t)}</span></li>`).join('');}
@@ -1103,7 +1121,7 @@ const panels=()=>document.querySelectorAll('[id^=tab-]');
 function goHome(){document.body.classList.add('is-home');$('#home').hidden=false;panels().forEach(p=>p.hidden=true);try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}window.scrollTo(0,0);}
 function leaveHome(){document.body.classList.remove('is-home');$('#home').hidden=true;}
 const hasClaude=!!window.claude;
-if(!hasClaude){$('#tb-check').hidden=true;$('#tab-check').hidden=true;$('#hc-check').hidden=true;}
+if(!hasClaude){$('#codebox').hidden=false;try{$('#acode').value=localStorage.getItem('lv_code')||'';}catch(e){}$('#acode').addEventListener('input',e=>{try{localStorage.setItem('lv_code',e.target.value.trim());}catch(x){}});}
 try{
  $('#hs-lows').textContent=LOWS.length+' stocks · '+LOWS.filter(d=>d.score>=64).length+' worth a look';
  const pass=GEMS.filter(d=>d.score>=GEMS_BAR).length;
@@ -1128,7 +1146,7 @@ document.addEventListener('click',e=>{
 });
 // start
 const h=location.hash.slice(1);
-if(['check','picks','lows','gems'].includes(h)&&(h!=='check'||hasClaude)){leaveHome();$('#tb-'+h).click();}
+if(['check','picks','lows','gems'].includes(h)){leaveHome();$('#tb-'+h).click();}
 else goHome();
 })();
 </script>
