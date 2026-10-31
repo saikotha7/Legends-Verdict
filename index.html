@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Legends Verdict</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
@@ -242,7 +244,7 @@ h1{font-size:clamp(26px,4.4vw,38px);font-weight:700;letter-spacing:-.02em}
 .rb-px{position:absolute;top:-6px;width:3px;height:22px;background:var(--ink);border-radius:2px;box-shadow:0 0 10px var(--ink);transform:translateX(-50%);animation:drop .8s ease both}
 @keyframes drop{from{top:-24px;opacity:0}}
 .rb-lab{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:400 11.5px var(--f-mono);color:var(--muted);margin-top:8px}
-.rb-lab i{font-style:normal}.k-b{color:var(--buy)}.k-t{color:var(--watch)}
+.rb-lab i{font-style:normal}.k-b{color:var(--buy)}.k-t{color:var(--watch)}.k-r{color:var(--avoid)}
 /* toolbar and stats */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 @media (max-width:640px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -1031,7 +1033,7 @@ function zone(d){
  return '<div class="plan"><div class="plan-grid"><div><div class="pk">Buy zone</div><b class="pvv">'+money(d.buy[0])+' to '+money(d.buy[1])+'</b></div><div><div class="pk">Sell / trim range</div><b class="pvv">'+money(d.trim[0])+' to '+money(d.trim[1])+'</b></div></div><div>'+st+'</div><div class="muted">Re-check the story if: '+d.rethink+'.</div></div>';}
 function head(d,rank){
  const off=((d.px/d.lo-1)*100).toFixed(1), fromHi=((1-d.px/d.hi)*100).toFixed(0), c=cls(d);
- return '<div class="lh2"><div><h3>'+(rank?'<span class="mono muted" style="font-size:14px">#'+rank+'</span>':'')+d.n+' <span class="tkr">'+d.t+'</span></h3><div class="lmeta"><span><b>'+money(d.px)+'</b></span><span>'+off+'% above low</span><span>'+fromHi+'% below high</span><span>earnings: '+d.earn+'</span></div></div><div class="lright"><button type="button" class="star'+(LV.isW(d.t)?' on':'')+'" data-star="'+d.t+'" aria-label="Add '+d.t+' to watchlist" title="Watchlist">'+(LV.isW(d.t)?'★':'☆')+'</button><div class="ring '+c+'" style="--p:'+d.score+'"><span>'+d.score+'</span></div></div></div><div class="callrow"><span class="lcall '+c+'">'+d.call+'</span></div>';}
+ return '<div class="lh2"><div><h3>'+(rank?'<span class="mono muted" style="font-size:14px">#'+rank+'</span>':'')+d.n+' <span class="tkr">'+d.t+'</span></h3><div class="lmeta"><span><b>'+money(d.px)+'</b></span>'+(d.chg!=null?'<span class="'+(d.chg>=0?'k-b':'k-r')+'">'+(d.chg>=0?'+':'')+d.chg.toFixed(1)+'% today</span>':'')+'<span>'+off+'% above low</span><span>'+fromHi+'% below high</span><span>earnings: '+d.earn+'</span></div></div><div class="lright"><button type="button" class="star'+(LV.isW(d.t)?' on':'')+'" data-star="'+d.t+'" aria-label="Add '+d.t+' to watchlist" title="Watchlist">'+(LV.isW(d.t)?'★':'☆')+'</button><div class="ring '+c+'" style="--p:'+d.score+'"><span>'+d.score+'</span></div></div></div><div class="callrow"><span class="lcall '+c+'">'+d.call+'</span></div>';}
 function topCard(d,rank){
  return '<div class="lcard top">'+head(d,rank)+rbar(d)+bars(d)+'<div><b>Why it fell.</b> '+d.why+'</div><div><b>What management and analysts said.</b> '+d.said+'</div><div><b>Reasons to buy</b><ul>'+d.reasons.map(r=>'<li>'+r+'</li>').join('')+'</ul></div><div><b>What could go wrong.</b> '+d.risk+'</div>'+zone(d)+'</div>';}
 function rowCard(d,rank){
@@ -1058,10 +1060,12 @@ $('#lowsasof').textContent=LOWS_ASOF;
 $('#lowsrefresh').addEventListener('click',async()=>{const b=$('#lowsrefresh'),msg='Refresh the 52-week lows tab with today’s prices, news and scores, and republish.';
  try{await navigator.clipboard.writeText(msg);b.textContent='Copied. Paste it in chat';}catch(e){b.textContent='Select and copy: '+msg;}
  setTimeout(()=>{b.textContent='Copy refresh request';},4000);});
-$('#lowstop').innerHTML=LOWS_TOP.map(t=>{const d=LOWS.find(x=>x.t===t);return topCard(d,rank[t]);}).join('');
+function topDraw(){$('#lowstop').innerHTML=LOWS_TOP.map(t=>{const d=LOWS.find(x=>x.t===t);return topCard(d,rank[t]);}).join('');}
+topDraw();
 $('#lsearch').addEventListener('input',list);$('#lsort').addEventListener('change',list);
 $('#lfilters').addEventListener('click',e=>{const c=e.target.closest('.chip');if(c)setF(c.dataset.f);});
 $('#lowstats').addEventListener('click',e=>{const c=e.target.closest('.stat');if(c)setF(c.dataset.f);});
+window.LV.redraw=()=>{topDraw();list();};
 window.LV.rerender=()=>{list();document.querySelectorAll('#lowstop .star').forEach(b=>{const on=LV.isW(b.dataset.star);b.classList.toggle('on',on);b.textContent=on?'★':'☆';});};
 list();
 $('#lowssrc').innerHTML='Data from <a href="https://stockanalysis.com" target="_blank" rel="noopener">StockAnalysis.com</a> (prices, ranges, news headlines), company filings (<a href="https://www.sec.gov/Archives/edgar/data/0001065696/000106569626000047/exhibit991-q326earningsand.htm" target="_blank" rel="noopener">LKQ 8-K</a>), and earnings-call summaries from <a href="https://www.marketbeat.com/instant-alerts/first-solar-q2-earnings-call-highlights-2026-07-30/" target="_blank" rel="noopener">MarketBeat</a>, <a href="https://www.tikr.com/blog/howmet-aerospace-hwm-stock-drops-elon-musk-turbine-production" target="_blank" rel="noopener">TIKR</a>, <a href="https://nasdaq.com/articles/why-t-mobile-stock-just-crashed" target="_blank" rel="noopener">Nasdaq</a>, <a href="https://finviz.com/news/402791/bear-of-the-day-evercore-evr" target="_blank" rel="noopener">Finviz/Zacks</a> and <a href="https://qz.com/whirlpool-earnings-miss-guidance-cut-dividend-suspended-iran-war-050726" target="_blank" rel="noopener">Quartz</a>. ESAB’s price is from Oct 22.';
@@ -1082,12 +1086,15 @@ function plan(d){if(!d.buy)return '';const st=d.px<d.buy[0]?'Price is below our 
 function gz(d){if(!d.buy)return '';const pts=[d.px,d.buy[0],d.trim[1]],mn=Math.min.apply(null,pts)*0.9,mx=Math.max.apply(null,pts)*1.08,sp=mx-mn,pc=v=>((v-mn)/sp*100).toFixed(1);
  return '<div class="rb" title="Price against our buy and trim zones"><div class="rb-track"><span class="rb-z rb-buy" style="left:'+pc(d.buy[0])+'%;width:'+(pc(d.buy[1])-pc(d.buy[0])).toFixed(1)+'%"></span><span class="rb-z rb-trim" style="left:'+pc(d.trim[0])+'%;width:'+(pc(d.trim[1])-pc(d.trim[0])).toFixed(1)+'%"></span><span class="rb-px" style="left:'+pc(d.px)+'%"></span></div><div class="rb-lab"><i>now $'+d.px.toFixed(2)+'</i><i class="k-b">■ buy $'+d.buy[0].toFixed(2)+'–$'+d.buy[1].toFixed(2)+'</i><i class="k-t">■ trim $'+d.trim[0].toFixed(2)+'–$'+d.trim[1].toFixed(2)+'</i></div></div>';}
 function card(d,i,pick,label){
- return '<div class="lcard'+(pick?' top':'')+'"><div class="lhead"><div><h3>'+(label||(i+1)+'.')+' '+d.n+' <span class="mono muted">'+d.t+'</span></h3><div class="muted">$'+d.px.toFixed(2)+' ('+d.asof+')</div></div><div style="text-align:right;display:flex;gap:12px;align-items:center;justify-content:flex-end"><button type="button" class="star'+(LV.isW(d.t)?' on':'')+'" data-star="'+d.t+'" aria-label="Add '+d.t+' to watchlist">'+(LV.isW(d.t)?'★':'☆')+'</button><div><div class="lscore">'+d.score+'<span class="muted" style="font-size:14px">/100</span></div><span class="lcall '+(d.score>=GEMS_BAR?'g':'y')+'">'+(d.score>=GEMS_BAR?'Clears the bar':(GEMS_BAR-d.score)+' points short')+'</span></div></div></div>'+gz(d)+'<div class="gbar"><b style="width:'+d.score+'%"></b><span style="left:'+GEMS_BAR+'%"></span></div>'+bars(d)+'<div><b>The case.</b> '+d.up+'</div><div><b>What holds it back.</b> '+d.hold+'</div>'+plan(d)+'</div>';}
+ return '<div class="lcard'+(pick?' top':'')+'"><div class="lhead"><div><h3>'+(label||(i+1)+'.')+' '+d.n+' <span class="mono muted">'+d.t+'</span></h3><div class="muted">$'+d.px.toFixed(2)+' ('+d.asof+')'+(d.chg!=null?' · <span class="'+(d.chg>=0?'k-b':'k-r')+'">'+(d.chg>=0?'+':'')+d.chg.toFixed(1)+'% today</span>':'')+'</div></div><div style="text-align:right;display:flex;gap:12px;align-items:center;justify-content:flex-end"><button type="button" class="star'+(LV.isW(d.t)?' on':'')+'" data-star="'+d.t+'" aria-label="Add '+d.t+' to watchlist">'+(LV.isW(d.t)?'★':'☆')+'</button><div><div class="lscore">'+d.score+'<span class="muted" style="font-size:14px">/100</span></div><span class="lcall '+(d.score>=GEMS_BAR?'g':'y')+'">'+(d.score>=GEMS_BAR?'Clears the bar':(GEMS_BAR-d.score)+' points short')+'</span></div></div></div>'+gz(d)+'<div class="gbar"><b style="width:'+d.score+'%"></b><span style="left:'+GEMS_BAR+'%"></span></div>'+bars(d)+'<div><b>The case.</b> '+d.up+'</div><div><b>What holds it back.</b> '+d.hold+'</div>'+plan(d)+'</div>';}
 $('#gemsmonth').textContent=GEMS_MONTH;$('#gemsdate').textContent=GEMS_ASOF;
+function draw(){
 const passed=GEMS.filter(d=>d.score>=GEMS_BAR).slice(0,3);
 const win=passed.length?passed:GEMS.slice(0,3);
 $('#gemspicks').innerHTML=(passed.length?'':'<div class="gem-empty" style="margin-bottom:12px"><b>No stock cleared 80 this month.</b> We checked '+GEMS.length+' stocks under $10 and the best scored '+GEMS[0].score+'. So these are the <b>best of a weak field</b>, not 80+ picks: size them small.</div>')+'<div class="lows-wrap">'+win.map((d,i)=>card(d,i,true,'Winner '+(i+1)+':')).join('')+'</div>';
 $('#gemsall').innerHTML=GEMS.slice(win.length).map((d,i)=>card(d,i+win.length,false)).join('');
+}
+draw();window.LV=window.LV||{};window.LV.drawGems=draw;
 $('#gemsrefresh').addEventListener('click',async()=>{const b=$('#gemsrefresh'),msg='Refresh the Hidden gems tab: find the best stocks under $10 this month, score them, and republish.';
  try{await navigator.clipboard.writeText(msg);b.textContent='Copied. Paste it in chat';}catch(e){b.textContent='Select and copy: '+msg;}
  setTimeout(()=>{b.textContent='Copy refresh request';},4000);});
@@ -1099,8 +1106,9 @@ const $=s=>document.querySelector(s);
 // ticker tape from the 52-week lows data
 try{
  const cls=d=>d.score>=64?'g':d.score>=50?'y':'r';
- const one=LOWS.map(d=>'<span class="tk" data-t="'+d.t+'" title="'+d.n+'"><b>'+d.t+'</b> $'+d.px.toFixed(2)+' <em class="'+cls(d)+'">'+d.score+'</em></span>').join('');
- $('#tapein').innerHTML=one+one;
+function tape(){ const one=LOWS.map(d=>'<span class="tk" data-t="'+d.t+'" title="'+d.n+'"><b>'+d.t+'</b> $'+d.px.toFixed(2)+' <em class="'+cls(d)+'">'+d.score+'</em></span>').join('');
+ $('#tapein').innerHTML=one+one;}
+ window.LV.tape=tape;tape();
  document.querySelector('.tape').setAttribute('aria-hidden','true');
  $('#tapein').addEventListener('click',e=>{const t=e.target.closest('.tk');if(!t)return;$('#tb-lows').click();$('#lsearch').value=t.dataset.t;$('#lsearch').dispatchEvent(new Event('input'));$('#lowsallh').scrollIntoView({behavior:'smooth',block:'start'});});
  $('#asoftxt').textContent='Lows data: '+LOWS_ASOF.split(' (')[0];
@@ -1150,6 +1158,23 @@ if(['check','picks','lows','gems'].includes(h)){leaveHome();$('#tb-'+h).click();
 else goHome();
 })();
 </script>
+<script id="live">
+(function(){
+if(window.claude)return; // inside Claude there is no server to ask; the website only
+const $=s=>document.querySelector(s);
+const syms=Array.from(new Set(LOWS.map(d=>d.t).concat(GEMS.map(d=>d.t))));
+fetch('/api/quotes?symbols='+syms.join(',')).then(r=>r.ok?r.json():Promise.reject()).then(j=>{
+ const Q=j.quotes||{};let n=0;
+ LOWS.forEach(d=>{const q=Q[d.t];if(!q)return;n++;d.px=q.c;d.chg=q.pc?(q.c/q.pc-1)*100:null;d.lo=Math.min(d.lo,q.c,q.l||q.c);d.hi=Math.max(d.hi,q.c);});
+ GEMS.forEach(d=>{const q=Q[d.t];if(!q)return;n++;d.px=q.c;d.chg=q.pc?(q.c/q.pc-1)*100:null;d.asof='live';});
+ if(!n)return;
+ try{LV.redraw();LV.drawGems();LV.tape();}catch(e){}
+ const t=new Date(j.at||Date.now()).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+ const p=$('#asoftxt');if(p)p.textContent='Live prices · '+t+' (about 15 min delayed)';
+}).catch(()=>{});
+})();
+</script>
+
 
 
 
